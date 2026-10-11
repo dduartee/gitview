@@ -6,10 +6,14 @@
 
 import type { Git } from "../git/index.ts"
 import { BG, COL, mix } from "./lib/color.ts"
+import { PRIO, catOf } from "./lib/category.ts"
+import { describeTrunks, isTrunk, resolveTrunks, type TrunkSource } from "./lib/trunks.ts"
 
-// `mix` sai pela interface porque o TUI precisa dele para esmaecer edges e texto, e
-// `lib/color.ts` é privado. Cor divergente entre renderizadores é bug de leitura.
-export { COL, mix, BG }
+// `mix` e os troncos saem pela interface porque o TUI e o export precisam deles, e
+// `lib/` é privado. Cor divergente entre renderizadores é bug de leitura; lista de
+// tronco duplicada dentro do template é o mesmo tipo de bug.
+export { COL, mix, BG, isTrunk, resolveTrunks, describeTrunks }
+export type { TrunkSource }
 
 export type Commit = {
   hash: string
@@ -44,21 +48,7 @@ export const DX = 4
 export const RH = 3
 
 /** Ordem de prioridade das categorias: usada para desempatar lanes de mesma data. */
-export const PRIO = ["main", "dev", "release", "hotfix", "feature", "other"]
-
-/** Names sempre fixados no topo do eixo Y, nesta ordem. */
-export const TRONCO = ["main", "master", "default", "base"]
-
-/** Categoria de uma branch por convenção de nome. Determina a cor. */
-export const catOf = (n: string): string => {
-  const s = n.toLowerCase()
-  return /(^|\/)(main|master|prod|production)$/.test(s) ? "main"
-    : /hotfix/.test(s) ? "hotfix"
-    : /release/.test(s) ? "release"
-    : /(^|\/)(feat|feature|topic|wip)/.test(s) ? "feature"
-    : /dev|homolog|staging/.test(s) ? "dev"
-    : "other"
-}
+export { PRIO, catOf }
 
 export type Model = {
   repo: string
@@ -85,6 +75,9 @@ export type Model = {
   /** Lanes que nada têm a entregar: fundidas ou `ahead 0`. */
   inactivas: Set<string>
   hasTags: boolean
+  /** Nomes de tronco resolvidos, e de onde vieram. Vai para o export para o template não adivinhar. */
+  troncos: string[]
+  troncosSource: TrunkSource
 }
 
 /** Cor de uma lane, já dessaturada quando ela está inativa. */
@@ -93,7 +86,12 @@ export const corLane = (m: { inactivas: Set<string> }, b: Lane): string => {
   return b.name && m.inactivas.has(b.name) ? mix(c) : c
 }
 
-export function buildModel(g: Git): Model {
+export type BuildOptions = {
+  /** `--trunk a,b`, já splitado. Vence `.gitview.json`, que vence `origin/HEAD`, que vence o nome. */
+  trunk?: string[]
+}
+
+export function buildModel(g: Git, opts: BuildOptions = {}): Model {
   const commits: Commit[] = g.git("log", "--all", "--date-order", "--pretty=format:%H%x1f%P%x1f%an%x1f%ae%x1f%aI%x1f%D%x1f%s%x1e")
     .split("\x1e").map(r => r.trim()).filter(Boolean).map(r => {
       const [hash, p, author, email, date, refs, subject] = r.split("\x1f")
@@ -140,6 +138,9 @@ export function buildModel(g: Git): Model {
     owner.set(h, b); b.list.push(h)
   }
 
+  // Resolvido antes do layout, porque pinning e a detecção de inativas dependem da lista.
+  const tr = resolveTrunks(g, n => loc.has(n), { flag: opts.trunk })
+
   const hasTags = commits.some(c => c.refs.some(r => r.startsWith("tag: ")))
   const labels: { t: string; y: number }[] = hasTags ? [{ t: "tags", y: 0 }] : []
   let yy = hasTags ? 3 : 1
@@ -152,14 +153,24 @@ export function buildModel(g: Git): Model {
     const cx = (b.x0 + b.x1) * DX / 2, len = b.label.length
     b.L = Math.min(b.x0 * DX, Math.floor(cx - len / 2)); b.R = Math.max(b.x1 * DX, Math.ceil(cx + len / 2))
   })
+  // Ordem dos troncos: a ordem da lista resolvida, e depois qualquer branch que a
+    // convenção de nome chame de `main` (cobre `team/platform/main`, que não está em
+    // nenhuma lista). Expandir aqui deixa `troncos` completo para o export, e a ordenação
+    // e o pinning são só um `indexOf`.
+    const troncosOrdenados = [
+      ...tr.names.filter(n => loc.has(n)),
+      ...[...loc.keys()].filter(n => !tr.names.includes(n) && catOf(n) === "main"),
+    ]
+    const rank = (nome: string) => troncosOrdenados.indexOf(nome)
+
   ordenadas.sort((a, b) => {                                        // tronco no topo; resto por data (recente primeiro)
-    const ta = TRONCO.indexOf(a.name), tb = TRONCO.indexOf(b.name)
+    const ta = rank(a.name), tb = rank(b.name)
     if (ta >= 0 || tb >= 0) return (ta < 0 ? 99 : ta) - (tb < 0 ? 99 : tb)
     return dataTip(b) - dataTip(a)
   })
   const ends: number[] = []                                         // empacota lanes que não se sobrepõem em x
-  const troncos = ordenadas.filter(b => TRONCO.indexOf(b.name) >= 0)
-  const resto = ordenadas.filter(b => TRONCO.indexOf(b.name) < 0)
+  const troncos = ordenadas.filter(b => rank(b.name) >= 0)
+  const resto = ordenadas.filter(b => rank(b.name) < 0)
   troncos.forEach((b, i) => { b.y = yy + i * RH })                 // tronco: linha propria, sempre no topo
   const baseY = yy + troncos.length * RH
   for (const b of resto) { let r = ends.findIndex(e => e < b.L - 1); if (r < 0) { r = ends.length; ends.push(0) } ends[r] = b.R; b.y = baseY + r * RH }
@@ -170,15 +181,23 @@ export function buildModel(g: Git): Model {
   const B = cs.map(c => owner.get(c.hash)!)
 
   // branches inativas: nada a contribuir (mergida ou so atras do destino) -> cor pastel
+  //
+  // `alvo` é o primeiro tronco resolvido, não o literal "main": é para ele que o trabalho
+  // flui. Sem tronco nenhum, cai no HEAD — a comparação continua válida, porque contra o
+  // HEAD nada está "atrás".
   const inactivas = new Set<string>()
-  const alvo = loc.get("main") ?? loc.get("master") ?? headHash
+  const alvo = troncosOrdenados.length ? loc.get(troncosOrdenados[0]) ?? headHash : headHash
   for (const [n, h] of loc) {
-    if (n === "main" || n === "master") continue
+    if (rank(n) >= 0) continue
     const r = g.run(["rev-list", "--left-right", "--count", `${alvo}...${h}`]).out.trim().split(/\s+/).map(Number)
     if (r[1] === 0) inactivas.add(n)
   }
 
-  return { repo: g.repo, headHash, commits, cs, N, lanes: br, owner, loc, idx, byHash, X, Y, B, MAXY, labels, inactivas, hasTags }
+  return {
+    repo: g.repo, headHash, commits, cs, N, lanes: br, owner, loc, idx, byHash,
+    X, Y, B, MAXY, labels, inactivas, hasTags,
+    troncos: troncosOrdenados, troncosSource: tr.source,
+  }
 }
 
 /** Uma lane ocupa linha? As invisíveis não, mas continuam na coluna de rótulos. */

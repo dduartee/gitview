@@ -226,7 +226,10 @@ export async function startTui({ g, m, planner, onExport }: TuiDeps): Promise<vo
       const c = cs[this.hover ?? this.cur], hbg = C("#1b1e25")
       buf.fillRect(ox, oy, W, 1, hbg)
       const fora = m.lanes.filter(b => visivel(b) && (b.y < this.sy || b.y > this.sy + H - TOP - BOT - 1)).length
-      buf.drawText(` gitview  ${m.repo}  ${N} commits · ${m.loc.size} branches${fora ? ` · ▼ +${fora} fora da vista` : ''}${this.anc ? "  [ancestrais]" : ""}`, ox, oy, C("#d9dce3"), hbg)
+      // O tronco aparece no cabeçalho porque o TUI não tem toggle de pinning: aqui a lista
+      // é sempre aplicada. No HTML existe o interruptor `pin main`, então lá ela é opcional.
+      const tr = m.troncos.length ? ` · tronco: ${m.troncos.join(", ")}` : " · sem tronco"
+      buf.drawText(` gitview  ${m.repo}  ${N} commits · ${m.loc.size} branches${tr}${fora ? ` · ▼ +${fora} fora da vista` : ''}${this.anc ? "  [ancestrais]" : ""}`, ox, oy, C("#d9dce3"), hbg)
       buf.fillRect(ox, oy + H - BOT, W, BOT, hbg)
       buf.drawText(`${c.hash.slice(0, 7)}  ${c.author}  ${c.date.slice(0, 16).replace("T", " ")}  ${c.refs.join(", ")}`, ox + 1, oy + H - 2, C("#8a919c"), hbg)
       buf.drawText(`${c.subject}`.slice(0, Math.max(0, W - 2)), ox + 1, oy + H - 1, C("#e4e7ec"), hbg)

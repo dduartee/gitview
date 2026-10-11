@@ -30,6 +30,9 @@ export type Graph = {
     merged: 0 | 1
   }[]
   laneOf: number[]
+  /** Troncos resolvidos pelo model e de onde vieram. O template usa em vez de repetir a lista. */
+  troncos: string[]
+  troncosSource: string
   report: Report & { matrix: Matrix | null }
 }
 
@@ -71,6 +74,8 @@ export function project(g: Git, m: Model, report: Report, matrix: Matrix | null)
       merged: (mergedRefs.has(b.name) ? 1 : 0) as 0 | 1,
     })),
     laneOf: m.cs.map(c => yNoHtml.get(m.owner.get(c.hash)!) ?? -1),
+    troncos: m.troncos,
+    troncosSource: m.troncosSource,
     report: { ...report, matrix },
   }
 }

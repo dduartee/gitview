@@ -3,8 +3,8 @@
 // JS e CSS vivos que desenham a projeção. Não tem dependência de módulo: lê tudo de
 // `window.__GRAPH__`. Por isso é dado puro e se move sem risco.
 //
-// espelhado por dentro: COL (packages/model/lib/color.ts) e TRONCO/PIN
-// (packages/model/index.ts). Se mudar a cor de uma categoria aqui, mude lá também.
+// espelhado por dentro: COL (packages/model/lib/color.ts). Se mudar a cor de uma
+// categoria aqui, mude lá também. A lista de troncos NÃO é espelhada: vem em G.troncos.
 
 export const TPL_DAG = `<!doctype html>
 <html lang="pt-BR">
@@ -68,7 +68,7 @@ h3{font-size:13px;margin:14px 0 2px}
 <div id="scrollbar"><div id="thumb"></div></div>
 <div class="toolbar">
 <label class="chk"><input type="checkbox" id="tg-ey" checked> eixo Y auto</label>
-<label class="chk"><input type="checkbox" id="tg-pin" checked> pin main</label>
+<label class="chk" id="lbl-pin"><input type="checkbox" id="tg-pin" checked> pin tronco</label>
 <label class="chk"><input type="checkbox" id="tg-hash" checked> hash</label>
 <label class="chk"><input type="checkbox" id="tg-ghost" checked> fantasmas</label>
 <label class="chk"><input type="checkbox" id="tg-merge" checked> merges</label>
@@ -98,6 +98,9 @@ function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').rep
 function el(n, at){ var e = document.createElementNS(NS, n); for (var k in at) e.setAttribute(k, at[k]); return e }
 document.getElementById('t').textContent = 'gitview — ' + G.repo;
 document.getElementById('m').textContent = G.commits.length + ' commits · HEAD ' + G.head.slice(0,7) + ' · gerado ' + G.report.generated.slice(0,16).replace('T',' ') + ' · ' + (G.report.exact ? 'conflitos exatos (git merge-tree)' : 'estimativa por arquivos em comum (git < 2.38)');
+var SRC = {flag:'--trunk', config:'.gitview.json', 'remote-head':'origin/HEAD', name:'convenção de nome'};
+var lp = document.getElementById('lbl-pin');
+if (lp && G.troncos && G.troncos.length) lp.appendChild(document.createTextNode(' (' + G.troncos.join(', ') + ' via ' + (SRC[G.troncosSource] || G.troncosSource) + ')'));
 var lanes = G.lanes.filter(function(l){ return l.name || l.listLen });
 var lane = {};
 for (var i = 0; i < lanes.length; i++) lane[lanes[i].name || '#' + i] = true;
@@ -146,7 +149,10 @@ function pastel(hex, f){                                   // cor dessaturada em
 }
 function ativa(nome){ if (!nome) return false; var r = conflitos[nome]; return r ? (!r.merged && r.ahead > 0) : true }
 function corLane(cat, nome){ var c = COL[cat] || '#9aa3b2'; return ativa(nome) ? c : pastel(c) }
-var PIN = ['main', 'master', 'default', 'base']
+// Troncos vêm do model (G.troncos), resolvidos por --trunk / .gitview.json /
+// origin/HEAD / convenção de nome. Esta lista NÃO é repetida aqui de propósito: era
+// duplicação que o TypeScript não conseguia verificar.
+var TRONCO = G.troncos || [];
 function laneY(li) { var l = lanes[li]; return l ? MT + l.y * ROW : MT }
 for (i = 0; i < G.commits.length; i++) {
   var c = G.commits[i], x = ML + i * CW, y = laneY(G.laneOf[i]);
@@ -237,7 +243,7 @@ for (i = 0; i < lanes.length; i++) {
   var tl = el('title'); tl.textContent = (l.name || '(sem branch)') + ' (' + l.cat + ') · ' + l.listLen + ' commits' + (l.ghost ? ' · sem branch propria' : '') + (l.merged ? ' · ja fundida' : ''); lab.appendChild(tl);
   world.appendChild(lab); laneEls[i].label = lab;
   var nm = l.name || ('(sem branch ' + (G.commits[l.x1] ? G.commits[l.x1].hash.slice(0, 3) : '?') + ')');
-  var pinL = chk('tg-pin') && !l.ghost && PIN.indexOf(l.name) >= 0;
+  var pinL = chk('tg-pin') && !l.ghost && TRONCO.indexOf(l.name) >= 0;
   var hit = el('rect', {x:0, y:0, width:ML - 14, height:ROW, fill:'transparent', cursor:'pointer', 'data-lane':i});
   hit.setAttribute('data-y', yl + ROW / 2); hit.setAttribute('data-pin', pinL ? '1' : '0');
   var eyn = el('text', {x:10, y:0, fill:l.ghost ? '#8a919c' : lc2, 'font-size':12, cursor:'pointer', 'data-lane':i, 'paint-order':'stroke', stroke:'#14161b', 'stroke-width':3});

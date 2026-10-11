@@ -62,7 +62,13 @@ an agent gets wrong by assumption:
   appear in the graph, as grey "ghosts", counted in a footer band.
 - **`getMatrix()` silently caps at 40 branches.** A repo with more open branches gets an
   incomplete matrix with no warning. The HTML says so; the TUI does not. Worth fixing.
-- **`develop` is not a trunk.** `TRONCO` is `["main", "master", "default", "base"]` and
-  `catOf` files `develop` under category `dev`. If your working trunk is `develop`, it gets
-  the wrong colour and loses top-pinning. Add it to `TRONCO`, or teach `catOf` to treat
-  `develop` as `main` — and mirror the change inside `export/lib/template.ts`.
+- **Trunk is declared, never hardcoded.** `--trunk a,b` → `.gitview.json` →
+  `refs/remotes/origin/HEAD` → name convention (category `main`). Don't add branch names to a
+  list in the code. Structural guessing is a trap: in a real repo `origin/21.03`, a stale
+  release, has *more* descendants than `develop`, so "most branches descend from it" ranks dead
+  branches as trunk. See `docs/adr/0002-tronco-por-declaracao.md`.
+- **Trunk is not the same thing as merge destination.** `develop` is trunk (top of the Y axis,
+  pinned) while staying category `dev` (colour, merge target). Promoting it to category `main`
+  makes `pick("main")` choose the newest of the two, and features start aiming at `main` — a
+  silent merge-plan bug traded for a colour bug. Same distinction makes `alvo` in the
+  inactive-branch check the first resolved trunk rather than the literal `"main"`.

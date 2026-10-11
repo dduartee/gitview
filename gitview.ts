@@ -10,7 +10,7 @@
 import { existsSync } from "node:fs"
 import { basename, resolve } from "node:path"
 import { createGit } from "./packages/git/index.ts"
-import { visivel, buildModel, type Model } from "./packages/model/index.ts"
+import { visivel, buildModel, describeTrunks, type Model } from "./packages/model/index.ts"
 import { createMergePlanner } from "./packages/merge/index.ts"
 import { exportHtml } from "./packages/export/index.ts"
 import { startTui } from "./packages/tui/index.ts"
@@ -18,7 +18,7 @@ import { startTui } from "./packages/tui/index.ts"
 const VERSAO = "1.2"
 
 /** Flags que consomem o argumento seguinte. O valor não pode ser lido como repo. */
-const VALUED = new Set(["--export", "--template", "--main", "--dev"])
+const VALUED = new Set(["--export", "--template", "--main", "--dev", "--trunk"])
 
 const args = process.argv.slice(2)
 const flag = (n: string) => { const i = args.indexOf(n); return i >= 0 ? args[i + 1] : undefined }
@@ -51,6 +51,7 @@ opcoes:
   --template <file.html>  usa template proprio; se nao existir, cai no embutido
   --main <branch>         branch principal do plano de merge (default: autodetect)
   --dev <branch>          branch de desenvolvimento (default: autodetect)
+  --trunk <a,b>           branches fixadas no topo do eixo Y (default: autodetect)
   --dump                  lista o modelo de lanes e sai (debug)
   --version               versao
   -h, --help              esta ajuda
@@ -74,15 +75,16 @@ exemplos:
   const g = createGit(resolve(repo))
   if (g.run(["rev-parse", "--is-inside-work-tree"]).code) { console.error("nao e repositorio git:", g.repo); process.exit(1) }
 
+  const trunkFlag = flag("--trunk")
   let m: Model
-  try { m = buildModel(g) }
+  try { m = buildModel(g, { trunk: trunkFlag ? trunkFlag.split(",").map(s => s.trim()).filter(Boolean) : undefined }) }
   catch (e: any) { console.error(e.message); process.exit(1) }
 
   const planner = createMergePlanner(g, m, { main: flag("--main"), dev: flag("--dev") })
 
   if (args.includes("--dump")) {
     const vis = m.lanes.filter(visivel)
-    console.log(`commits: ${m.N}  lanes: ${vis.length}  refs: ${m.loc.size}`)
+    console.log(`commits: ${m.N}  lanes: ${vis.length}  refs: ${m.loc.size}  ${describeTrunks({ names: m.troncos, source: m.troncosSource })}`)
     for (const b of [...vis].sort((a, b) => a.y - b.y)) {
       console.log(`${String(b.list.length).padStart(4)}${b.tipAt !== undefined ? "*" : " "} ${b.cat.padEnd(8)} ${b.name || "(fantasma)"}`)
     }

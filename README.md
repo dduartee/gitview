@@ -120,6 +120,26 @@ gitview --help               # todas as opções (--main, --dev, --template, …
 O destino do merge é inferido pelo nome (`main`, ou `develop`/`dev` para features/outros) e pode
 ser fixado com `--main` e `--dev`.
 
+### Tronco
+
+O tronco é a branch que fica fixa no topo do eixo Y. Não é uma lista fixa no código — é
+resolvido por cascata, e a primeira fonte que existir vence:
+
+| ordem | fonte | quem decide |
+| --- | --- | --- |
+| 1 | `--trunk main,develop` | você, agora |
+| 2 | `.gitview.json` no repo → `{"troncos": [...]}` | o time, versionado |
+| 3 | `refs/remotes/origin/HEAD` | o remote, sobre qual branch é default |
+| 4 | convenção de nome (categoria `main`) | o padrão de mercado |
+
+A ordem importa porque **adivinhar pelo grafo dá errado**: a branch com mais descendentes
+tende a ser uma release velha, não o tronco. Em `gaabe.space`, `origin/21.03` tem 8 descendentes
+contra 6 de `develop` — e é justamente a branch morta que a heurística escolheria.
+
+Note que tronco e destino de merge são coisas diferentes. `develop` pode ser tronco (posição,
+pinning) e continuar sendo destino das features (categoria `dev`). Promovê-lo a categoria `main`
+faria as features passarem a mirar `main` em qualquer repo onde `develop` estivesse à frente.
+
 ## Limitações conhecidas
 
 - **Categoria por substring.** `catOf` olha o prefixo do nome; `maintenance/…` pode cair na
@@ -128,6 +148,9 @@ ser fixado com `--main` e `--dev`.
   para dezenas, lento para centenas.
 - **SVG sem virtualização.** O HTML desenha todos os commits como elementos; acima de ~5 000
   commits o navegador começa a engasgar.
+- **Tronco não detectado em repo sem remote.** Sem `origin/HEAD`, sem `.gitview.json` e sem
+  `--trunk`, cai na convenção de nome. Se seu tronco tem outro nome e o repo não tem remote,
+  o topo do eixo Y fica sem pinagem até você passar `--trunk`.
 - **Custo no start.** Para saber quais branches estão inativas, o TUI roda um
   `git rev-list --count` por branch no start (dezenas de ms cada). Em repo com centenas de
   branches a abertura leva alguns segundos.
