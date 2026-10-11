@@ -15,13 +15,17 @@
     "start": "bun gitview.ts",
     "dump": "bun gitview.ts --dump",
     "export": "bun gitview.ts --export grafo.html",
-    "test": "bun test"
+    "test": "bun test",
+    "typecheck": "tsc --noEmit",
+    "lint:boundaries": "depcruise packages gitview.ts",
+    "check": "bun run typecheck && bun run lint:boundaries && bun test"
   },
   "dependencies": {
     "@opentui/core": "^0.5.17"
   },
   "devDependencies": {
-    "@types/bun": "latest"
+    "@types/bun": "latest",
+    "dependency-cruiser": "^18.6.0"
   },
   "peerDependencies": {
     "typescript": "^5"

@@ -7,7 +7,7 @@ já fundidas apagadas em pastel de baixo contraste. O mesmo arquivo exporta um H
 auto-contido para mandar no PR, revisar com o time ou arquivar.
 
 Não é `git log --graph`: é um grafo de *lanes* com eixo Y de verdade, planeador de merge e
-export HTML. Um arquivo só, sem build: Bun + [OpenTUI](https://github.com/anomalyco/opentui).
+export HTML. Sem build: Bun + [OpenTUI](https://github.com/anomalyco/opentui).
 
 ---
 
@@ -149,8 +149,18 @@ Issues e PRs são bem-vindos. A ferramenta é pessoal na origem, e o que eu mais
 **o que falta para o seu grafo ficar legível**: se o seu repo tem muitas branches e o `gitview`
 não mostra algo que você precisa, abre uma issue com o nome da branch e o que você esperava ver.
 
-Código: um arquivo só, `gitview.ts`, com o template HTML embutido como string. Sem build step,
-sem framework, sem transpilação — Bun rodando TypeScript direto. Comentários em PT-BR.
+Código: sem build step, sem framework, sem transpilação — Bun rodando TypeScript direto.
+Comentários em PT-BR.
+
+O código vive em `packages/`, um diretório por preocupação — `git` (a seam de execução),
+`model` (a atribuição commit→lane, compartilhada pelos dois renderizadores), `merge` (plano e
+matriz de conflitos), `export` (o HTML) e `tui` (o terminal). O `gitview.ts` na raiz é só o
+composition root: argumentos e dispatch. Cada package é um módulo profundo, e
+`bun run lint:boundaries` falha se alguém alcançar um `lib/` de dentro de outro package.
+
+Isso não é o mesmo que "um arquivo só": o **export HTML** continua sendo um arquivo só, sem
+CDN e sem JS externo — é essa a garantia que importa. O binário também continua único, via
+`bun build --compile`.
 
 ## Licença
 
