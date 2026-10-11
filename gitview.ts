@@ -57,7 +57,6 @@ const headHash = git("rev-parse", "HEAD").trim()
 
 // ───────── modelo: branch de cada commit + linhas ─────────
 const DX = 4, RH = 3
-const CATS: [string, string][] = [["main", "main"], ["hotfix", "hotfix"], ["release", "release"], ["dev", "develop"], ["feature", "feature"], ["other", "outros"]]
 const PRIO = ["main", "dev", "release", "hotfix", "feature", "other"]
 const COL: Record<string, string> = { main: "#4c9ffe", hotfix: "#b5b9bd", release: "#86c64a", dev: "#ffbf5e", feature: "#d9757d", other: "#b79cf0" }
 const catOf = (n: string) => { const s = n.toLowerCase()
@@ -793,7 +792,7 @@ class GitView extends Renderable {
   }
 
   // mouse: clique seleciona · duplo-clique ancestrais · arrastar move · roda ↔ · shift+roda ↕
-  protected onMouseEvent(e: MouseEvent) {
+  protected override onMouseEvent(e: MouseEvent) {
     if (this.panel) {
       if (e.type === "scroll" && e.scroll) { this.pscroll = Math.max(0, this.pscroll + (e.scroll.direction === "up" ? -3 : 3)); this.requestRender() }
       return
@@ -886,7 +885,7 @@ class GitView extends Renderable {
     this.anc = s
   }
 
-  protected renderSelf(buf: OptimizedBuffer) {
+  protected override renderSelf(buf: OptimizedBuffer) {
     if (!this.ready) { this.ready = true; this.reveal() }
     const W = this.width, H = this.height, ox = this.x, oy = this.y
     const on = (h: string) => !this.anc || this.anc.has(h)

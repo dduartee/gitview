@@ -128,6 +128,9 @@ ser fixado com `--main` e `--dev`.
   para dezenas, lento para centenas.
 - **SVG sem virtualização.** O HTML desenha todos os commits como elementos; acima de ~5 000
   commits o navegador começa a engasgar.
+- **Custo no start.** Para saber quais branches estão inativas, o TUI roda um
+  `git rev-list --count` por branch no start (dezenas de ms cada). Em repo com centenas de
+  branches a abertura leva alguns segundos.
 - **Cobertura de teste em construção.** O desenho sai de um modelo conferível com `--dump`
   (dump vs. grafo foi validado num repo com centenas de commits), mas a suíte `bun test` ainda
   não cobre o renderizador.
