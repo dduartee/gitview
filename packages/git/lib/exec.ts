@@ -17,9 +17,12 @@ export function execGit(repo: string, a: string[], env?: Record<string, string>)
       env: env ? { ...process.env, ...env } : process.env,
     }) as string
     return { out, code: 0 }
-  } catch (e: any) {
+  } catch (e) {
     // `merge-tree --write-tree` sinaliza conflito pelo código 1, com os arquivos na
     // stdout. Isso é dado, não erro — por isso o código volta em vez de estourar.
-    return { out: String(e.stdout ?? ""), code: Number(e.status ?? 1) }
+    // Node lança `ExecFileSyncException` com `stdout` e `status`; se vier outra coisa,
+    // o shape ainda assim existe, só sem os dois campos.
+    const r = e as { stdout?: unknown; status?: unknown }
+    return { out: typeof r.stdout === "string" ? r.stdout : "", code: typeof r.status === "number" ? r.status : 1 }
   }
 }

@@ -52,8 +52,8 @@ function fromConfig(g: Git): string[] {
     const j = JSON.parse(txt)
     const t = j?.troncos
     return Array.isArray(t) ? t.filter((x: unknown): x is string => typeof x === "string" && !!x) : []
-  } catch (e: any) {
-    console.error("aviso: .gitview.json inválido, ignorando —", e.message)
+  } catch (e) {
+    console.error("aviso: .gitview.json inválido, ignorando —", e instanceof Error ? e.message : String(e))
     return []
   }
 }

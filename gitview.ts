@@ -78,7 +78,7 @@ exemplos:
   const trunkFlag = flag("--trunk")
   let m: Model
   try { m = buildModel(g, { trunk: trunkFlag ? trunkFlag.split(",").map(s => s.trim()).filter(Boolean) : undefined }) }
-  catch (e: any) { console.error(e.message); process.exit(1) }
+  catch (e) { console.error(e instanceof Error ? e.message : String(e)); process.exit(1) }
 
   const planner = createMergePlanner(g, m, { main: flag("--main"), dev: flag("--dev") })
 
@@ -99,11 +99,10 @@ exemplos:
     try {
       console.log("exportado:", exportHtml(g, m, planner.getReport(), planner.getMatrix(), exportTo, flag("--template")))
       return
-    } catch (e: any) { console.error("erro ao exportar:", e.message); process.exit(1) }
+    } catch (e) { console.error("erro ao exportar:", e instanceof Error ? e.message : String(e)); process.exit(1) }
   }
 
   startTui({
-    g,
     m,
     planner,
     onExport: () => exportHtml(g, m, planner.getReport(), planner.getMatrix(), `gitview-${basename(resolve(g.repo))}.html`),

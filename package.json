@@ -18,7 +18,8 @@
     "test": "bun test",
     "typecheck": "tsc --noEmit",
     "lint:boundaries": "depcruise packages gitview.ts",
-    "check": "bun run typecheck && bun run lint:boundaries && bun test"
+    "sinks": "bun script/sinks.ts",
+    "check": "bun run sinks && bun run typecheck && bun run lint:boundaries && bun test"
   },
   "dependencies": {
     "@opentui/core": "^0.5.17"

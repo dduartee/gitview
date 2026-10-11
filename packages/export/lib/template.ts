@@ -91,7 +91,7 @@ h3{font-size:13px;margin:14px 0 2px}
 (function(){
 var i, j;
 var G = window.__GRAPH__;
-if (!G || !G.commits) { document.getElementById('t').textContent = 'gitview — sem dados'; return }
+if (!G || !G.commits || !G.commits.length) { document.getElementById('t').textContent = 'gitview — sem dados'; return }
 var COL = {main:'#4c9ffe',hotfix:'#b5b9bd',release:'#86c64a',dev:'#ffbf5e',feature:'#d9757d',other:'#b79cf0'};
 var NS = 'http://www.w3.org/2000/svg';
 function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
