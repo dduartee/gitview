@@ -18,8 +18,9 @@
     "strict": true,
     "skipLibCheck": true,
     "noFallthroughCasesInSwitch": true,
-    // single-file com 950 linhas: a regra gera ~77 falsos positivos de "possibly undefined"
-    // sem custo real (bun nao checa tipos em runtime) e atrapalha quem abre o repo
+    // Measured: turning this rule on gives 77 errors on the single file (HEAD) and 80 after
+    // the split into packages/ — so the split did not fix it. Most are `!` and `??` the real
+    // code already has. Keep it off until someone wants to pay that bill.
     "noUncheckedIndexedAccess": false,
     "noImplicitOverride": true,
 

@@ -1,65 +1,74 @@
 # gitview
 
-**Grafo do git por *lanes*, no terminal — e um export HTML de um arquivo só.**
+**Git graph by *lanes*, in the terminal — plus a self-contained HTML export.**
 
-Cada branch ocupa uma linha do grafo com o nome escrito na ponta, cor por categoria, branches
-já fundidas apagadas em pastel de baixo contraste. O mesmo arquivo exporta um HTML
-auto-contido para mandar no PR, revisar com o time ou arquivar.
+Each branch occupies one row of the graph with its name written at the tip, colour by category,
+already-merged branches dimmed in low-contrast pastel. The same file exports a self-contained
+HTML you can attach to a PR, review with the team or archive.
 
-Não é `git log --graph`: é um grafo de *lanes* com eixo Y de verdade, planeador de merge e
-export HTML. Um arquivo só, sem build: Bun + [OpenTUI](https://github.com/anomalyco/opentui).
-
----
-
-## Isto resolve um problema pessoal
-
-O `gitview` nasceu de uma necessidade específica e diária, não da ideia genérica de "mais uma
-ferramenta de git". No repo onde trabalho, com **centenas de commits, dezenas de branches e
-merges frequentes**, eu precisava responder a três coisas que nenhuma ferramenta me dava rápido:
-
-1. **Qual lane é cada commit?** — `git log --graph` desenha linhas com caracteres, mas o nome da
-   branch raramente aparece onde eu estou olhando. Eu caçava com `git branch --contains`,
-   commit por commit.
-2. **Quais branches ainda têm algo a me entregar?** — quem já foi fundida e quem está só atrás
-   do alvo se mistura, com o mesmo peso visual. Aqui as inativas ficam em **pastel de baixo
-   contraste**: dá pra ver o que existe sem ler o que importa.
-3. **Qual a ordem de merge menos dolorida?** — quem vai primeiro, o que conflita com quem, e a
-   ordem muda o resultado. O `gitview` simula os merges com `git merge-tree --write-tree`
-   (**sem tocar em refs nem na working tree**) e sugere a ordem.
-
-Se você também tem um repo com muitas branches e merges frequentes, provavelmente sente o mesmo.
-Se tem um repo pequeno com 3 branches, use `git log --oneline` e economize o tempo — esta
-ferramenta é para o outro caso.
+It is not `git log --graph`: it is a *lane* graph with a real Y axis, a merge planner and HTML
+export. No build: Bun + [OpenTUI](https://github.com/anomalyco/opentui).
 
 ---
 
-## O que ele faz
+## The graph, in the terminal
 
-- **Lane por branch, com o nome na ponta.** Cada branch é uma linha do grafo; o nome real
-  aparece à direita do seu último commit (`feature/login #518a29a`), não num rótulo solto.
-- **Eixo Y dinâmico.** Só as lanes visíveis aparecem; `main`/`master`/`default`/`base` ficam
-  sempre pinadas no topo; as setas ▲/▼ pulam para a próxima lane fora da tela. Alternativa:
-  coluna fixa com scroll para ver todas.
-- **Eixo X sem sobreposição.** Só a faixa visível é desenhada, com espaçamento mínimo de 130 px
-  e formato de data que muda com o zoom (ano → ano-mês → dia). Datas nunca se sobrepõem.
-- **Branches inativas em pastel.** Fundidas ou só atrás do destino (`ahead 0`) aparecem com cor
-  dessaturada em direção ao fundo, marcadas `✓fundida`.
-- **Fantasmas.** Commits de branches já apagadas (lados de merges, tip duplicado, `wip/x`)
-  continuam no grafo em cinza e são contados numa faixa no rodapé. Nenhum commit some por falta
-  de ref.
-- **Planejamento de merge** (tecla `p`, ou aba *plano de merge*): ordem sugerida por destino,
-  com conflitos exatos via `git merge-tree` quando git ≥ 2.38, ou estimativa por arquivos em
-  comum para git mais antigo.
-- **Matriz de conflitos** branch × branch — o que vai explodir antes de explodir.
-- **Export HTML de um arquivo só.** Sem CDN, sem JS externo, sem build. Abre com duplo clique,
-  manda por e-mail/PR, e usa o mesmo renderizador do terminal: eixos, filtro, zoom e deep-link
-  por lane (`#lane=nome`).
-- **Nada é escrito no seu repo.** Nenhuma ref muda, nenhum arquivo aparece lá: tudo vem de
-  `git log`/`rev-list`/`merge-tree` em modo leitura.
+One lane per branch: the name at the tip, the colour by category, merged and inactive lanes in
+pastel, the tag band at the top. This is `gitflow`, a synthetic repo.
 
-## Instalação
+![gitview rendering the gitflow fixture in the terminal](screenshots/gitflow.png)
 
-Requer **[Bun](https://bun.sh)** e `git` 2.30+ no `PATH`.
+---
+
+## This solves a personal problem
+
+`gitview` was born from a specific, daily need, not from the generic idea of "yet another git
+tool". In the repo where I work, with **hundreds of commits, dozens of branches and frequent
+merges**, I needed to answer three things no tool gave me quickly:
+
+1. **Which lane is each commit in?** — `git log --graph` draws lines with characters, but the
+   branch name rarely appears where I am looking. I hunted with `git branch --contains`,
+   commit by commit.
+2. **Which branches still have something to deliver?** — who was already merged and who is just
+   behind the target blend together, with the same visual weight. Here the inactive ones are in
+   **low-contrast pastel**: you can see what exists without reading what matters.
+3. **What is the least painful merge order?** — who goes first, what conflicts with what, and the
+   order changes the result. `gitview` simulates the merges with `git merge-tree --write-tree`
+   (**without touching refs or the working tree**) and suggests the order.
+
+If you also have a repo with many branches and frequent merges, you probably feel the same.
+If you have a small repo with 3 branches, use `git log --oneline` and save the time — this
+tool is for the other case.
+
+---
+
+## What it does
+
+- **Lane per branch, with the name at the tip.** Each branch is a row of the graph; the real
+  name appears to the right of its last commit (`feature/login #518a29a`), not in a loose label.
+- **Dynamic Y axis.** Only the visible lanes appear; `main`/`master`/`default`/`base` are
+  always pinned at the top; the ▲/▼ arrows jump to the next lane off screen. Alternative: a
+  fixed column with scroll to see all.
+- **X axis without overlap.** Only the visible band is drawn, with a minimum spacing of 130 px
+  and a date format that changes with zoom (year → year-month → day). Dates never overlap.
+- **Inactive branches in pastel.** Merged or just behind the target (`ahead 0`) appear with
+  colour desaturated toward the background, marked `✓merged`.
+- **Branchless.** Commits of already-deleted branches (sides of merges, duplicate tip, `wip/x`)
+  remain in the graph in grey and are counted in a band at the footer. No commit vanishes for
+  lack of a ref.
+- **Merge planning** (`p` key, or the *merge plan* tab): order suggested by target, with exact
+  conflicts via `git merge-tree` when git ≥ 2.38, or an estimate by shared files for older git.
+- **Conflict matrix** branch × branch — what will blow up before it blows up.
+- **Self-contained HTML export.** No CDN, no external JS, no build. Opens on a double click,
+  keeps working when emailed or attached to a PR, and is an independent renderer: its SVG has
+  the X axis, filter, zoom and per-lane deep link (`#lane=name`), none of which the terminal
+  has.
+- **Nothing is written to your repo.** No ref moves, no file appears there: everything comes
+  from `git log`/`rev-list`/`merge-tree` in read mode.
+
+## Installation
+
+Requires **[Bun](https://bun.sh)** and `git` 2.30+ on the `PATH`.
 
 ```bash
 git clone https://github.com/dduartee/gitview
@@ -68,90 +77,128 @@ bun install
 ```
 
 ```bash
-bun run gitview.ts ~/qualquer/repo   # a partir do clone
-bun link && gitview ~/qualquer/repo   # comando global
+bun run gitview.ts ~/any/repo   # from the clone
+bun link && gitview ~/any/repo  # global command
 ```
 
-## Experimentar sem repo grande
+## Try it without a big repo
 
-O clone traz um repo sintético determinístico — dezenas de commits, branches de todas as
-categorias, merges `--no-ff`, tags, branch órfã e nomes propositalmente horríveis:
+The clone ships a deterministic synthetic repo — dozens of commits, branches of every category,
+`--no-ff` merges, tags, a deleted branch and deliberately awful names:
 
 ```bash
-bash script/fixture.sh      # cria .fixtures/complex (fora do versionamento)
+bash script/fixture.sh      # creates .fixtures/complex (outside version control)
 gitview .fixtures/complex
-gitview .fixtures/complex --export grafo.html
+gitview .fixtures/complex --export graph.html
 ```
 
-## Uso
+## Usage
 
 ```bash
-gitview                      # grafo do repo atual
-gitview /caminho/do/repo     # grafo de outro repo
-gitview --dump               # imprime o modelo de lanes (debug, sem UI)
-gitview --export grafo.html  # exporta o HTML auto-contido
-gitview --help               # todas as opções (--main, --dev, --template, …)
+gitview                      # graph of the current repo
+gitview /path/to/repo        # graph of another repo
+gitview --dump               # prints the lane model (debug, no UI)
+gitview --json model.json    # everything the renderers consume, for a test harness
+gitview --export graph.html  # exports the self-contained HTML
+gitview --help               # all options (--main, --dev, --template, …)
 ```
 
-| tecla | ação |
+| key | action |
 |---|---|
-| clique · `←` `→` | selecionar commit |
-| `↑` `↓` | pular para o commit mais próximo na lane vizinha |
-| `shift` + `←` `→` | pular 20 commits |
-| `Home` `End` (`g` `G`) | primeiro / último commit |
-| `h` | voltar ao HEAD |
-| duplo clique · `Enter` | destacar ancestrais do commit (esmaece o resto) |
-| arrastar · roda | navegar (`shift`+roda = vertical) |
-| `p` | painel de planejamento de merge |
-| `e` | exportar HTML na working directory |
-| `q` · `Esc` | sair |
+| click · `←` `→` | select commit |
+| `↑` `↓` | jump to the nearest commit in the neighbouring lane |
+| `shift` + `←` `→` | jump 20 commits |
+| `Home` `End` (`g` `G`) | first / last commit |
+| `h` | back to HEAD |
+| double click · `Enter` | highlight the commit's ancestors (dims the rest) |
+| drag · wheel | pan (`shift`+wheel = vertical) |
+| `p` | merge planning panel |
+| `e` | export HTML into the working directory |
+| `q` · `Esc` | quit |
 
-## Como a lane é montada
+## How a lane is built
 
-- **Lane por branch:** a lane segue o *first-parent* a partir da ponta (`tip`) de cada branch,
-  parando onde outro dono já reivindicou o commit.
-- **Tronco fixo no topo:** `main`/`master`/`default`/`base` ocupam as primeiras linhas, sozinhos;
-  o resto é ordenado pela data do último commit (mais recente primeiro).
-- **Categoria pela cor:** o prefixo do nome define a categoria (`main`, `hotfix`, `release`,
-  `develop`, `feature`, `outros`).
-- **Fantasma:** commit sem ref vira lane sem nome (no terminal, `~hash7`).
-- **Inativa:** `ahead 0` em relação ao destino do merge → pastel.
+- **Lane per branch:** the lane follows the *first-parent* from the tip of each branch,
+  stopping where another owner has already claimed the commit.
+- **Fixed default branch at the top:** `main`/`master`/`default`/`base` occupy the first rows,
+  alone; the rest is ordered by the date of the last commit (most recent first).
+- **Category by colour:** the name prefix defines the category (`main`, `hotfix`, `release`,
+  `develop`, `feature`, `other`).
+- **Branchless:** a commit with no ref becomes a lane with no name (in the terminal, `~hash7`).
+- **Inactive:** `ahead 0` relative to the merge target → pastel.
 
-O destino do merge é inferido pelo nome (`main`, ou `develop`/`dev` para features/outros) e pode
-ser fixado com `--main` e `--dev`.
+The merge target is inferred from the name (`main`, or `develop`/`dev` for features/other) and
+can be fixed with `--main` and `--dev`.
 
-## Limitações conhecidas
+### Default branch
 
-- **Categoria por substring.** `catOf` olha o prefixo do nome; `maintenance/…` pode cair na
-  categoria `main`. O mesmo vale para escolher o destino do merge.
-- **Análise de conflitos é O(n²).** Um `git merge-tree` por par de branches abertas: instantâneo
-  para dezenas, lento para centenas.
-- **SVG sem virtualização.** O HTML desenha todos os commits como elementos; acima de ~5 000
-  commits o navegador começa a engasgar.
-- **Custo no start.** Para saber quais branches estão inativas, o TUI roda um
-  `git rev-list --count` por branch no start (dezenas de ms cada). Em repo com centenas de
-  branches a abertura leva alguns segundos.
-- **Cobertura de teste em construção.** O desenho sai de um modelo conferível com `--dump`
-  (dump vs. grafo foi validado num repo com centenas de commits), mas a suíte `bun test` ainda
-  não cobre o renderizador.
+The default branch is the branch that stays fixed at the top of the Y axis. It is not a fixed
+list in the code — it is resolved by cascade, and the first source that exists wins:
+
+| order | source | who decides |
+| --- | --- | --- |
+| 1 | `--default-branch main,develop` | you, now |
+| 2 | `.gitview.json` in the repo → `{"defaultBranches": [...]}` | the team, versioned |
+| 3 | `refs/remotes/origin/HEAD` | the remote, about which branch is default |
+| 4 | name convention (category `main`) | the market default |
+
+The order matters because **guessing from the graph goes wrong**: the branch with the most
+descendants tends to be an old release, not the default branch. In `gaabe.space`, `origin/21.03`
+has 8 descendants against 6 for `develop` — and it is precisely the dead branch that the
+heuristic would choose.
+
+Note that the default branch and the merge target are different things. `develop` can be the
+default branch (position, pinning) while remaining the target of features (category `dev`).
+Promoting it to category `main` would make features start aiming at `main` in any repo where
+`develop` was ahead.
+
+## Known limitations
+
+- **Category by substring.** `catOf` looks at the name prefix; `maintenance/…` can fall into the
+  `main` category. The same goes for choosing the merge target.
+- **Conflict analysis is O(n²).** One `git merge-tree` per pair of open branches: instant for
+  dozens, slow for hundreds.
+- **SVG without virtualization.** The HTML draws every commit as an element; above ~5,000
+  commits the browser starts to choke.
+- **Default branch not detected in a repo with no remote.** Without `origin/HEAD`, without
+  `.gitview.json` and without `--default-branch`, it falls back to the name convention. If your
+  default branch has another name and the repo has no remote, the top of the Y axis stays
+  unpinned until you pass `--default-branch`.
+- **Startup cost.** To know which branches are inactive, the TUI runs one
+  `git rev-list --count` per branch at startup (dozens of ms each). In a repo with hundreds of
+  branches, opening takes a few seconds.
+- **Test coverage under construction.** The drawing comes from a model that can be checked with
+  `--dump` (dump vs. graph validated on a repo with hundreds of commits), but the `bun test`
+  suite does not yet cover the renderer.
 
 ## Roadmap
 
-- [ ] Cobertura de teste para o modelo de lanes (`bun test`)
-- [ ] Virtualização do SVG acima de alguns milhares de commits
-- [ ] Cache da análise de conflitos entre aberturas
-- [ ] Filtro por commit (mensagem, autor), além do nome da branch
-- [ ] Export PNG a partir do HTML
+- [ ] Test coverage for the lane model (`bun test`)
+- [ ] SVG virtualization above a few thousand commits
+- [ ] Cache the conflict analysis between openings
+- [ ] Filter by commit (message, author), beyond the branch name
+- [ ] PNG export from the HTML
 
-## Contribuindo
+## Contributing
 
-Issues e PRs são bem-vindos. A ferramenta é pessoal na origem, e o que eu mais quero saber é
-**o que falta para o seu grafo ficar legível**: se o seu repo tem muitas branches e o `gitview`
-não mostra algo que você precisa, abre uma issue com o nome da branch e o que você esperava ver.
+Issues and PRs are welcome. The tool is personal in origin, and what I most want to know is
+**what is missing for your graph to become readable**: if your repo has many branches and
+`gitview` does not show something you need, open an issue with the branch name and what you
+expected to see.
 
-Código: um arquivo só, `gitview.ts`, com o template HTML embutido como string. Sem build step,
-sem framework, sem transpilação — Bun rodando TypeScript direto. Comentários em PT-BR.
+Code: no build step, no framework, no transpilation — Bun running TypeScript directly.
+Comments in English.
 
-## Licença
+The code lives in `packages/`, one directory per concern — `git` (the execution seam),
+`model` (the commit→lane assignment, shared by the two renderers), `merge` (the merge plan and
+conflict matrix), `export` (the HTML) and `tui` (the terminal). `gitview.ts` at the root is just
+the composition root: arguments and dispatch. Each package is a deep module, and
+`bun run lint:boundaries` fails if anyone reaches into a `lib/` from inside another package.
+
+This is not the same as "a single file": the **HTML export** is still a single file, with no
+CDN and no external JS — that is the guarantee that matters. The binary is also still a single
+one, via `bun build --compile`.
+
+## License
 
 [MIT](LICENSE) © 2026 [Gabriel Kleemann Duarte](https://github.com/dduartee)
