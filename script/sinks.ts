@@ -41,17 +41,20 @@ function longestFunctions(file: string, source: string, min: number): { file: st
   const l = source.split("\n")
   const out: { file: string; line: number; n: number; name: string }[] = []
   for (let i = 0; i < l.length; i++) {
-    const opened = l[i].match(/^(\s*)(?:export\s+)?(?:async\s+)?(?:function\s+(\w+)|(?:const|let)\s+(\w+)\s*(?::[^=]+)?=\s*(?:async\s*)?\()/)
-    if (!opened) continue
-    const base = opened[1].length
-    const name = opened[2] ?? opened[3] ?? "?"
+    // Two shapes only: `function name(` and `const name = (` with an optional type. Kept as
+    // two matches instead of one alternation, so the capture index is never in doubt.
+    const declared = l[i].match(/^\s*(?:export\s+)?(?:async\s+)?function\s+(\w+)/)
+      ?? l[i].match(/^\s*(?:export\s+)?(?:const|let)\s+(\w+)\s*(?::[^=]+)?=\s*(?:async\s*)?\(/)
+    if (!declared) continue
+    const base = l[i].match(/^(\s*)/)![1].length
+    const name = declared[1]
     let end = i + 1
     for (let j = i + 1; j < l.length; j++) {
       if (!l[j].trim()) continue
       if (l[j].match(/^(\s*)/)![1].length <= base) { end = j; break }
     }
     const n = end - i
-    if (n >= min) out.push({ file, line: i + 1, n, name })
+    if (n > min) out.push({ file, line: i + 1, n, name })
   }
   return out
 }
@@ -79,8 +82,10 @@ const shipped = files.filter(f => !isTest(relative(ROOT, f)))
 const tests = files.filter(f => isTest(relative(ROOT, f)))
 
 /** LOC measured over what goes into the binary. Tests are reported separately. */
-const lines = shipped.map(f => [relative(ROOT, f), readFileSync(f, "utf8").split("\n").length - 1] as const)
-const testLines = tests.map(f => [relative(ROOT, f), readFileSync(f, "utf8").split("\n").length - 1] as const)
+/** Lines of a file, excluding the trailing empty one. */
+const locOf = (f: string) => [relative(ROOT, f), readFileSync(f, "utf8").split("\n").length - 1] as const
+const lines = shipped.map(locOf)
+const testLines = tests.map(locOf)
 const total = lines.reduce((s, [, n]) => s + n, 0)
 const totalTests = testLines.reduce((s, [, n]) => s + n, 0)
 

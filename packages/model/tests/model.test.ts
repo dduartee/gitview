@@ -29,7 +29,7 @@ const repo = (over: Record<string, { out: string; code?: number }> = {}) => crea
   },
   "rev-parse HEAD": { out: "e1\n" },
   // The `target` of inactive detection is the **hash** of main's tip (`a1`), not the name
-  // "main" — that is what `loc.get("main")` returns. The keys below are what the model
+  // "main" — that is what `tipByBranch.get("main")` returns. The keys below are what the model
   // actually asks for; if the code changes the query, the tests fail instead of lying.
   "rev-list --left-right --count a1...b1": { out: leftRight(0, 2) },
   "rev-list --left-right --count a1...c1": { out: leftRight(0, 1) },

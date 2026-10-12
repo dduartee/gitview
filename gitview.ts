@@ -84,7 +84,7 @@ examples:
 
   if (args.includes("--dump")) {
     const visibleLanes = m.lanes.filter(visible)
-    console.log(`commits: ${m.N}  lanes: ${visibleLanes.length}  refs: ${m.loc.size}  ${describeDefaultBranches({ names: m.defaultBranches, source: m.defaultBranchSource })}`)
+    console.log(`commits: ${m.N}  lanes: ${visibleLanes.length}  refs: ${m.tipByBranch.size}  ${describeDefaultBranches({ names: m.defaultBranches, source: m.defaultBranchSource })}`)
     for (const b of [...visibleLanes].sort((a, b) => a.y - b.y)) {
       console.log(`${String(b.list.length).padStart(4)}${b.tipAt !== undefined ? "*" : " "} ${b.cat.padEnd(8)} ${b.name || "(no branch)"}`)
     }
@@ -94,10 +94,14 @@ examples:
     return
   }
 
+  // Report and matrix are the same for every export; only the destination file differs.
+  const writeHtml = (file: string, template?: string) =>
+    exportHtml(g, m, planner.getReport(), planner.getMatrix(), file, template)
+
   const exportTo = flag("--export")
   if (exportTo) {
     try {
-      console.log("exported:", exportHtml(g, m, planner.getReport(), planner.getMatrix(), exportTo, flag("--template")))
+      console.log("exported:", writeHtml(exportTo, flag("--template")))
       return
     } catch (e) { console.error("export error:", e instanceof Error ? e.message : String(e)); process.exit(1) }
   }
@@ -105,7 +109,7 @@ examples:
   startTui({
     m,
     planner,
-    onExport: () => exportHtml(g, m, planner.getReport(), planner.getMatrix(), `gitview-${basename(resolve(g.repo))}.html`),
+    onExport: () => writeHtml(`gitview-${basename(resolve(g.repo))}.html`),
   })
 }
 

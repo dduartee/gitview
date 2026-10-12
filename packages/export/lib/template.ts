@@ -26,7 +26,6 @@ h1{font-size:14px;margin:0}
 #colY.on{width:270px;overflow-y:auto}
 #colY .cy{padding:1px 10px;font-size:12px;white-space:nowrap;cursor:pointer;line-height:20px}
 #colY .cy:hover{background:#1b1e25;color:#fff}
-#dag:active{cursor:grabbing}
 svg{display:block;width:100%;height:100%}
 #ey text{transition:y .1s ease;cursor:pointer}
 #ey text:hover{fill:#fff}
@@ -182,7 +181,9 @@ for (i = 0; i < G.commits.length; i++) {
     var painted = e;
     if (!same) {
       painted = el('g'); painted.appendChild(e);
-      painted.appendChild(arrowhead(x, y, py === y ? (x > px ? 1 : -1) : 0, py === y ? 0 : (y > py ? 1 : -1), laneColor(lp2.cat, lp2.name)));
+      var dx = py === y ? (x > px ? 1 : -1) : 0;
+      var dy = py === y ? 0 : (y > py ? 1 : -1);
+      painted.appendChild(arrowhead(x, y, dx, dy, laneColor(lp2.cat, lp2.name)));
     }
     world.appendChild(painted);
     var rec = {e:painted, a:G.laneOf[i], b:G.laneOf[p]};
@@ -358,10 +359,16 @@ var hadState = (function restore(){                        // UI state (toggles 
   return false
 })();
 if (!hadState) fitTo(headIdx, G.laneOf[headIdx]);             // S0: opens on recent commits (HEAD)
+/** Zooms to the branch named in '#lane='. False when there is no hash, or no lane by that name. */
+function applyHash(){
+  var mh = /lane=([^&]+)/.exec(location.hash || '');
+  if (!mh) return false;
+  var want = decodeURIComponent(mh[1]);
+  for (var q = 0; q < lanes.length; q++) if (lanes[q].name === want) { zoomLane(q); return true }
+  return false
+}
 window.addEventListener('load', function(){                     // on load, hash rules; without hash, HEAD
-  var mh2 = /lane=([^&]+)/.exec(location.hash || '');
-  if (mh2) { var w2 = decodeURIComponent(mh2[1]); for (var q2 = 0; q2 < lanes.length; q2++) if (lanes[q2].name === w2) { zoomLane(q2); return } }
-  fitTo(headIdx, G.laneOf[headIdx])
+  if (!applyHash()) fitTo(headIdx, G.laneOf[headIdx])
 });
 dag.addEventListener('pointerdown', function(e){ drag = {x:e.clientX, y:e.clientY, tx:tx, ty:ty}; dag.setPointerCapture(e.pointerId) });
 dag.addEventListener('pointermove', function(e){ if (!drag) return; tx = drag.tx + (e.clientX - drag.x); ty = drag.ty + (e.clientY - drag.y); apply() });
@@ -376,10 +383,7 @@ document.addEventListener('keydown', function(ev){                 // keyboard z
   var ns = Math.max(.6, Math.min(4, sc * f));
   tx = mx - (mx - tx) * ns / sc; ty = my - (my - ty) * ns / sc; sc = ns; apply();
 });
-(function () {                                                  // deep-link #lane=name
-  var mh = /lane=([^&]+)/.exec(location.hash || '');
-  if (mh) { var want = decodeURIComponent(mh[1]); for (var q = 0; q < lanes.length; q++) if (lanes[q].name === want) { zoomLane(q); break } }
-})();
+applyHash();                                                    // early paint of a deep link, before 'load' fires
 
 // ── tabs: refs · plan · matrix ──
 var TABS = ['refs', 'plan', 'matrix'];

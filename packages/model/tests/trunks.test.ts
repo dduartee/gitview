@@ -7,7 +7,7 @@ import { createFakeGit, logOutput } from "../../git/fake.ts"
 import { buildModel, type BuildOptions } from "../index.ts"
 
 /**
- * Repo with `main`, `develop` and two features. All with refs, so `loc` knows which
+ * Repo with `main`, `develop` and two features. All with refs, so `tipByBranch` knows which
  * branches exist — `resolveDefaultBranches` receives `exists` from here.
  */
 const repo = (over: Record<string, { out: string; code?: number }> = {}) => createFakeGit({
@@ -53,7 +53,7 @@ describe("default branch source", () => {
   })
 
   test("no source => no default branch, and the model still builds", () => {
-    // repo with no main/master in loc, no remote, no flag
+    // repo with no main/master in tipByBranch, no remote, no flag
     const g = createFakeGit({
       "log --all": { out: logOutput([{ hash: "z1", refs: ["HEAD -> wip/scratch"] }]) },
       "rev-parse HEAD": { out: "z1\n" },

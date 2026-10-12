@@ -28,14 +28,14 @@ const newLane = (lanes: Lane[]) => (name: string, cat: string): Lane => {
 type Lanes = { owner: Map<string, Lane>; br: Lane[] }
 
 /**
- * @param loc       branch name -> tip hash
+ * @param tipByBranch       branch name -> tip hash
  * @param idx       hash -> position in `cs` (oldest first)
  * @param byHash    hash -> commit
  * @param kids      hash -> child hashes
  * @param cs        commits, oldest first
  */
 export function assignLanes(
-  loc: Map<string, string>,
+  tipByBranch: Map<string, string>,
   idx: Map<string, number>,
   byHash: Map<string, Commit>,
   kids: Map<string, string[]>,
@@ -47,7 +47,7 @@ export function assignLanes(
 
   // Sorts the tips by category priority and then by date: on a tie, the newest branch of
   // each category claims first, and higher-priority ones before lower.
-  const tips = [...loc].map(([n, h]) => ({ n, h, cat: catOf(n) }))
+  const tips = [...tipByBranch].map(([n, h]) => ({ n, h, cat: catOf(n) }))
     .sort((a, b) => CATEGORY_ORDER.indexOf(a.cat) - CATEGORY_ORDER.indexOf(b.cat) || idx.get(b.h)! - idx.get(a.h)!)
 
   for (const t of tips) {

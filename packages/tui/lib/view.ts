@@ -16,6 +16,9 @@ import { BOT, C, GUT, Painter, TOP } from "./pintor.ts"
 /** Ancestors of the selected commit, or null when not filtering. */
 type Ancestors = Set<string> | null
 
+/** Pan can go two columns past the left edge, so the first lane is not glued to the gutter. */
+const MIN_SX = -2
+
 export class GitView extends Renderable {
   cur: number
   sx = 0; sy = 0
@@ -54,11 +57,11 @@ export class GitView extends Renderable {
     if (x - this.sx > vw - 5) this.sx = x - vw + 5
     if (y - this.sy < 1) this.sy = Math.max(0, y - 1)
     if (y - this.sy > vh - 3) this.sy = y - vh + 3
-    this.sx = Math.max(-2, this.sx)
+    this.sx = Math.max(MIN_SX, this.sx)
   }
 
   private clamp() {
-    this.sx = Math.min(Math.max(-2, this.sx), this.m.X[this.m.N - 1])
+    this.sx = Math.min(Math.max(MIN_SX, this.sx), this.m.X[this.m.N - 1])
     this.sy = Math.min(Math.max(0, this.sy), this.m.MAXY)
   }
 
@@ -97,11 +100,9 @@ export class GitView extends Renderable {
       case "up": {
         const d = this.drag; this.drag = null
         if (!d || d.moved || e.button !== 0) break
-        const i = this.hit(e.x, e.y), now = Date.now()
+        const i = this.hit(e.x, e.y)
         if (i < 0) { this.anc = null; break }
-        const dbl = i === this.last.i && now - this.last.t < 400
-        this.cur = i; this.last = dbl ? { i: -1, t: 0 } : { i, t: now }
-        if (dbl) { this.anc = null; this.toggle() }
+        this.select(i)
         break
       }
       case "scroll": {
@@ -129,10 +130,13 @@ export class GitView extends Renderable {
   /** Defers expensive work out of the render cycle, and shows the error in the status bar. */
   private later(f: () => void) {
     setTimeout(() => {
-      try { f() } catch (e) { this.msg = "error: " + (e instanceof Error ? e.message : String(e)) }
+      try { f() } catch (e) { this.msg = "error: " + this.err(e) }
       this.requestRender()
     }, 30)
   }
+
+  /** Message of an unknown thrown value, for the status bar. */
+  private err(e: unknown): string { return e instanceof Error ? e.message : String(e) }
 
   openPlan() {
     this.msg = "analyzing merges…"; this.requestRender()
@@ -145,7 +149,7 @@ export class GitView extends Renderable {
       try {
         this.msg = "exported: " + this.onExport()
         setTimeout(() => { this.msg = ""; this.requestRender() }, 7000)
-      } catch (e) { this.msg = "error: " + (e instanceof Error ? e.message : String(e)); this.requestRender() }
+      } catch (e) { this.msg = "error: " + this.err(e); this.requestRender() }
     })
   }
 
@@ -182,6 +186,18 @@ export class GitView extends Renderable {
       if (s < bs) { bs = s; best = i }
     }
     if (best >= 0) this.cur = best
+  }
+
+  /**
+   * Selects a commit. A second click on the same commit within 400ms toggles the ancestor
+   * filter; `last` is cleared so a third click starts a fresh pair.
+   */
+  private select(i: number) {
+    const now = Date.now()
+    const double = i === this.last.i && now - this.last.t < 400
+    this.cur = i
+    this.last = double ? { i: -1, t: 0 } : { i, t: now }
+    if (double) { this.anc = null; this.toggle() }
   }
 
   /** Toggles the ancestors filter. `null` shows everything again. */
@@ -221,7 +237,7 @@ export class GitView extends Renderable {
     const defaultBranchHint = this.m.defaultBranches.length ? ` · default branch: ${this.m.defaultBranches.join(", ")}` : " · no default branch"
 
     buf.fillRect(ox, oy, W, 1, hbg)
-    buf.drawText(` gitview  ${this.m.repo}  ${this.m.N} commits · ${this.m.loc.size} branches${defaultBranchHint}${outOfView ? ` · ▼ +${outOfView} out of view` : ''}${this.anc ? "  [ancestors]" : ""}`, ox, oy, C("#d9dce3"), hbg)
+    buf.drawText(` gitview  ${this.m.repo}  ${this.m.N} commits · ${this.m.tipByBranch.size} branches${defaultBranchHint}${outOfView ? ` · ▼ +${outOfView} out of view` : ''}${this.anc ? "  [ancestors]" : ""}`, ox, oy, C("#d9dce3"), hbg)
 
     buf.fillRect(ox, oy + H - BOT, W, BOT, hbg)
     buf.drawText(`${c.hash.slice(0, 7)}  ${c.author}  ${c.date.slice(0, 16).replace("T", " ")}  ${c.refs.join(", ")}`, ox + 1, oy + H - 2, C("#8a919c"), hbg)

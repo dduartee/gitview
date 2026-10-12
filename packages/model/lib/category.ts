@@ -8,18 +8,26 @@ export const CATEGORY_ORDER = ["main", "dev", "release", "hotfix", "feature", "o
 
 /**
  * `develop` is NOT category `main`: it stays `dev`. This is deliberate — the category is
- * what `merge` uses to pick a target, and `intoOf` sends feature and other to `dev ?? main`.
+ * what `merge` uses to pick a target, and `mergeTargetOf` sends feature and other to `dev ?? main`.
  * If `develop` were `main`, `pick("main")` would pick the newest commit between the two
  * and features would start aiming at `main` instead of `develop`: a silent merge-plan bug
  * traded for a color bug. `develop` is a default branch, and default branch is resolved
  * separately — see `lib/trunks.ts`.
  */
+/**
+ * First match wins, so this order *is* the precedence: `main` before `dev` (a name can match
+ * both), `hotfix`/`release` before `feature`.
+ */
+const CATEGORY_PATTERNS: [RegExp, string][] = [
+  [/(^|\/)(main|master|prod|production)$/, "main"],
+  [/hotfix/, "hotfix"],
+  [/release/, "release"],
+  [/(^|\/)(feat|feature|topic|wip)/, "feature"],
+  [/dev|homolog|staging/, "dev"],
+]
+
 export const catOf = (n: string): string => {
   const s = n.toLowerCase()
-  return /(^|\/)(main|master|prod|production)$/.test(s) ? "main"
-    : /hotfix/.test(s) ? "hotfix"
-    : /release/.test(s) ? "release"
-    : /(^|\/)(feat|feature|topic|wip)/.test(s) ? "feature"
-    : /dev|homolog|staging/.test(s) ? "dev"
-    : "other"
+  for (const [pattern, category] of CATEGORY_PATTERNS) if (pattern.test(s)) return category
+  return "other"
 }

@@ -5,7 +5,7 @@
 //
 // It is not a mock: every response is the real stdout that git would return.
 
-import type { Git, GitResult } from "./index.ts"
+import { throwingGit, type Git, type GitResult } from "./index.ts"
 
 export type FakeGit = Git & {
   /** Every call that arrived, in order. Used to assert what was — and what was not — consulted. */
@@ -27,7 +27,8 @@ export function createFakeGit(responses: Record<string, Partial<GitResult>> = {}
   let fallback: GitResult = { out: "", code: 0 }
 
   const put = (k: string, r: Partial<GitResult>) => {
-    table[k] = { out: r.out ?? table[k]?.out ?? "", code: r.code ?? table[k]?.code ?? 0 }
+    const previous = table[k]
+    table[k] = { out: r.out ?? previous?.out ?? "", code: r.code ?? previous?.code ?? 0 }
   }
   for (const [k, r] of Object.entries(responses)) {
     if (k === "") { fallback = { out: r.out ?? "", code: r.code ?? 0 }; continue }
@@ -50,11 +51,7 @@ export function createFakeGit(responses: Record<string, Partial<GitResult>> = {}
     return lookup(key)
   }
 
-  const git = (...a: string[]): string => {
-    const r = run(a)
-    if (r.code) throw new Error(`git ${a[0]} failed`)
-    return r.out
-  }
+  const git = throwingGit(run)
 
   const self: FakeGit = {
     repo: "/fake/repo",

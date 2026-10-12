@@ -68,7 +68,8 @@ asymmetry. If one day you need the TUI to gain a feature from the HTML, the plac
 
 ## The mirror inside the template
 
-`export/lib/template.ts` is live JS and CSS inside a string, and it **duplicates** two things
-from the TypeScript: the colours per category (`COL`) and the list of default branches
-(`TRUNK`). There is no way for TypeScript to verify this. If you change a category's colour or
-the list of default branches, change both sides, and leave a comment back in the other file.
+`export/lib/template.ts` is live JS and CSS inside a string, and it **duplicates** the colours
+per category (`COL`, plus `pastel` mirroring `mix`). There is no way for TypeScript to verify
+this. If you change a category's colour, change both sides, and leave a comment back in the
+other file. The list of default branches is *not* duplicated: the template reads
+`G.defaultBranches`, which the model resolved.

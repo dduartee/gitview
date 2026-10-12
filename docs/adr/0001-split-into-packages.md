@@ -73,7 +73,7 @@ mattered.
 single file, 80 after the split. The refactor did not solve this; solving it is separate
 work.
 
-**Debt recorded, not paid:** `getMatrix()` caps at 40 branches without warning in the TUI;
-the HTML template duplicates `COL` and `TRUNK` from the TypeScript with no possible
-verification; `develop` is not in `TRUNK` and is classified as `dev`, which gives the wrong
-colour and loses pinning for whoever works on `develop`.
+**Debt recorded, not paid:** `getMatrix()` caps at `MATRIX_CAP` branches without warning in the
+TUI; the HTML template duplicates `COL` from the TypeScript with no possible verification. The
+old complaint about `develop` losing its pinning was settled by ADR-0002: the default branch is
+declared, not read from a fixed list.

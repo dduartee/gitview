@@ -31,14 +31,21 @@ export type Viewport = {
   anc: Set<string> | null
 }
 
+/** Known branch prefixes and their short form. 11 columns cannot fit `feature/imu-upload`. */
+const ABBREV: [RegExp, string][] = [
+  [/^(feature|feat)\//, "f/"], [/^(hotfix|fix)\//, "h/"], [/^release\//, "r/"],
+  [/^(docs|doc)\//, "d/"], [/^chore\//, "c/"], [/^(migracao|migration)\//, "m/"],
+  [/^test\//, "t/"], [/^sync\//, "s/"], [/^codespace\//, "cs/"],
+]
+
 export class Painter {
   constructor(private v: Viewport, private buf: OptimizedBuffer, private m: Model) {}
 
   /** Is a commit in focus? With no ancestors mode, everything is. */
-  private on = (h: string) => !this.v.anc || this.v.anc.has(h)
+  private inFocus = (hash: string) => !this.v.anc || this.v.anc.has(hash)
 
   /** Colour in focus or dimmed, depending on the ancestors mode. */
-  private f = (hex: string, ok: boolean) => ok ? hex : mix(hex)
+  private shade = (hex: string, focused: boolean) => focused ? hex : mix(hex)
 
   /** Writes a cell in world coordinates, skipping whatever leaves the viewport. */
   put(wx: number, wy: number, ch: string, fg: string, bg = BG) {
@@ -64,9 +71,9 @@ export class Painter {
     for (let i = 0; i < this.m.N; i++) {
       const tags = cs[i].refs.filter(r => r.startsWith("tag: ")).map(r => r.slice(5))
       if (!tags.length || !this.vis(X[i])) continue
-      const ok = this.on(cs[i].hash)
-      for (let y = 1; y < Y[i]; y++) this.put(X[i], y, "┊", this.f("#3a4150", ok))
-      this.txt(X[i] - Math.floor(tags.join(",").length / 2), 0, tags.join(","), this.f("#e3b341", ok))
+      const focused = this.inFocus(cs[i].hash)
+      for (let y = 1; y < Y[i]; y++) this.put(X[i], y, "┊", this.shade("#3a4150", focused))
+      this.txt(X[i] - Math.floor(tags.join(",").length / 2), 0, tags.join(","), this.shade("#e3b341", focused))
     }
   }
 
@@ -86,18 +93,18 @@ export class Painter {
       if (j === undefined) continue
       const ax = X[j], ay = Y[j], bx = X[i], by = Y[i]
       if (!this.vis(ax) && !this.vis(bx)) continue
-      const ok = this.on(p) && this.on(cs[i].hash)
+      const focused = this.inFocus(p) && this.inFocus(cs[i].hash)
 
       if (B[i] === B[j]) {
-        const col = this.f(laneColor(this.m, B[i]), ok)
+        const col = this.shade(laneColor(this.m, B[i]), focused)
         for (let x = ax + 1; x < bx; x++) this.put(x, ay, "─", col)
         continue
       }
-      const col = this.f(EDGE, ok)
+      const col = this.shade(EDGE, focused)
       // The arrowhead carries the colour of the lane the edge links to — the merged-in
       // branch, or the branch a commit forked from — so a merge and a fork read by colour.
       // The dashed path stays neutral and does not compete with the lanes.
-      const acol = this.f(laneColor(this.m, B[j]), ok)
+      const acol = this.shade(laneColor(this.m, B[j]), focused)
       if (ay === by) {
         for (let x = ax + 1; x < bx - 1; x++) this.put(x, ay, "┄", col)
         this.put(bx - 1, ay, "▶", acol)
@@ -115,8 +122,8 @@ export class Painter {
   laneNames() {
     for (const b of this.m.lanes) {
       if (!visible(b) || !b.label) continue
-      const ok = !this.v.anc || b.list.some(h => this.v.anc!.has(h))
-      this.txt(b.x1 * DX + 2, b.y, b.label, this.f(laneColor(this.m, b), ok))
+      const focused = !this.v.anc || b.list.some(h => this.v.anc!.has(h))
+      this.txt(b.x1 * DX + 2, b.y, b.label, this.shade(laneColor(this.m, b), focused))
     }
   }
 
@@ -125,9 +132,9 @@ export class Painter {
     const { cs, X, Y, B } = this.m
     for (let i = 0; i < this.m.N; i++) {
       if (!this.vis(X[i])) continue
-      const ok = this.on(cs[i].hash), isCur = i === this.v.cur
+      const focused = this.inFocus(cs[i].hash), isCur = i === this.v.cur
       const bg = isCur ? "#2b3550" : i === this.v.hover ? "#232938" : BG
-      this.put(X[i], Y[i], cs[i].parents.length > 1 ? "◉" : "●", this.f(laneColor(this.m, B[i]), ok), bg)
+      this.put(X[i], Y[i], cs[i].parents.length > 1 ? "◉" : "●", this.shade(laneColor(this.m, B[i]), focused), bg)
       if (isCur) { this.put(X[i] - 1, Y[i], "[", "#ffffff"); this.put(X[i] + 1, Y[i], "]", "#ffffff") }
     }
   }
@@ -154,9 +161,7 @@ export class Painter {
   private shortName(b: Lane): string {
     const tip = laneTip(this.m.cs, b)
     const abbreviated = (b.name
-      ? b.name.replace(/^(feature|feat)\//, "f/").replace(/^(hotfix|fix)\//, "h/").replace(/^release\//, "r/")
-          .replace(/^(docs|doc)\//, "d/").replace(/^chore\//, "c/").replace(/^(migracao|migration)\//, "m/")
-          .replace(/^test\//, "t/").replace(/^sync\//, "s/").replace(/^codespace\//, "cs/")
+      ? ABBREV.reduce((s, [pattern, to]) => s.replace(pattern, to), b.name)
       : "~" + tip.slice(0, 7))
     return abbreviated.length > GUT - 1 ? abbreviated.slice(0, GUT - 2) + "…" : abbreviated
   }

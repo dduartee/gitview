@@ -62,7 +62,7 @@ export type Model = {
   /** Lane that owns each commit. */
   owner: Map<string, Lane>
   /** Branch name -> tip hash. Includes remote refs flattened to the short name. */
-  loc: Map<string, string>
+  tipByBranch: Map<string, string>
   idx: Map<string, number>
   byHash: Map<string, Commit>
   X: number[]
@@ -91,6 +91,12 @@ export type BuildOptions = {
 export const laneTip = (cs: Commit[], b: Lane): string =>
   b.list[0] ?? (b.tipAt !== undefined ? cs[b.tipAt].hash : "")
 
+/** Index of the lane's tip in `cs` — the key the lanes are ordered by. `tipAt` covers the invisible ones. */
+const tipIndex = (idx: Map<string, number>, b: Lane): number => {
+  const tip = b.list[0]
+  return tip !== undefined ? idx.get(tip)! : (b.tipAt ?? 0)
+}
+
 /** Color of a lane, already desaturated when it is inactive. */
 export const laneColor = (m: { inactive: Set<Lane> }, b: Lane): string => {
   const c = COL[b.cat] ?? "#b79cf0"
@@ -100,14 +106,22 @@ export const laneColor = (m: { inactive: Set<Lane> }, b: Lane): string => {
 /** Does a lane occupy a line? Invisible ones do not, but they stay in the label column. */
 export const visible = (b: Lane): boolean => b.list.length > 0 || b.tipAt !== undefined
 
+/**
+ * One log record -> one commit. The field order is the order of the `--pretty=format:` in
+ * `readCommits`: hash, parents, author, email, date, refs, subject.
+ */
+function parseCommit(record: string): Commit {
+  const [hash, parents, author, email, date, refs, subject] = record.split("\x1f")
+  return {
+    hash, parents: parents ? parents.split(" ") : [], author, email, date, subject,
+    refs: refs ? refs.split(", ").filter(Boolean) : [],
+  }
+}
+
 /** Reads the log and turns each line into the corresponding commit. */
 function readCommits(g: Git): Commit[] {
   const raw = g.git("log", "--all", "--date-order", "--pretty=format:%H%x1f%P%x1f%an%x1f%ae%x1f%aI%x1f%D%x1f%s%x1e")
-  return raw
-    .split("\x1e").map(r => r.trim()).filter(Boolean).map(r => {
-      const [hash, p, author, email, date, refs, subject] = r.split("\x1f")
-      return { hash, parents: p ? p.split(" ") : [], author, email, date, subject, refs: refs ? refs.split(", ").filter(Boolean) : [] }
-    })
+  return raw.split("\x1e").map(r => r.trim()).filter(Boolean).map(parseCommit)
 }
 
 /**
@@ -117,20 +131,20 @@ function readCommits(g: Git): Commit[] {
  * the local wins when both point to the same names — what you have on disk rules.
  */
 function linkRefs(commits: Commit[]): Map<string, string> {
-  const loc = new Map<string, string>(), rem = new Map<string, string>()
-  for (const c of commits) for (const r0 of c.refs) {
-    if (r0.startsWith("tag: ") || r0.startsWith("refs/")) continue
-    const r = r0.replace(/^HEAD -> /, "")
-    if (r === "HEAD" || /\/HEAD$/.test(r)) continue
-    if (/^(origin|upstream)\//.test(r)) {
-      const n = r.replace(/^[^/]+\//, "")
-      if (!rem.has(n)) rem.set(n, c.hash)
+  const local = new Map<string, string>(), remote = new Map<string, string>()
+  for (const c of commits) for (const raw of c.refs) {
+    if (raw.startsWith("tag: ") || raw.startsWith("refs/")) continue
+    const ref = raw.replace(/^HEAD -> /, "")
+    if (ref === "HEAD" || /\/HEAD$/.test(ref)) continue
+    if (/^(origin|upstream)\//.test(ref)) {
+      const short = ref.replace(/^[^/]+\//, "")
+      if (!remote.has(short)) remote.set(short, c.hash)
     } else {
-      loc.set(r, c.hash)
+      local.set(ref, c.hash)
     }
   }
-  for (const [n, h] of rem) if (!loc.has(n)) loc.set(n, h)
-  return loc
+  for (const [short, hash] of remote) if (!local.has(short)) local.set(short, hash)
+  return local
 }
 
 /** hash -> child hashes. Used to discover the lane of a commit without a ref. */
@@ -164,8 +178,8 @@ function detectInactive(
     if (isDefaultBranchName(b.name)) continue
     const tip = laneTip(cs, b)
     if (!tip) continue
-    const r = g.run(["rev-list", "--left-right", "--count", `${targetHash}...${tip}`]).out.trim().split(/\s+/).map(Number)
-    if (r[1] === 0) inactive.add(b)
+    const [, ahead] = g.run(["rev-list", "--left-right", "--count", `${targetHash}...${tip}`]).out.trim().split(/\s+/).map(Number)
+    if (ahead === 0) inactive.add(b)
   }
   return inactive
 }
@@ -180,15 +194,15 @@ export function buildModel(g: Git, opts: BuildOptions = {}): Model {
   const byHash = new Map(cs.map(c => [c.hash, c]))
   const idx = new Map(cs.map((c, i) => [c.hash, i]))
   const kids = linkChildren(cs)
-  const loc = linkRefs(commits)
+  const tipByBranch = linkRefs(commits)
 
-  const { owner, br } = assignLanes(loc, idx, byHash, kids, cs)
+  const { owner, br } = assignLanes(tipByBranch, idx, byHash, kids, cs)
 
   // Resolved before layout: pinning and inactive detection depend on the list.
-  const tr = resolveDefaultBranches(g, n => loc.has(n), { flag: opts.defaultBranches })
+  const tr = resolveDefaultBranches(g, n => tipByBranch.has(n), { flag: opts.defaultBranches })
   const defaultBranches = [
-    ...tr.names.filter(n => loc.has(n)),
-    ...[...loc.keys()].filter(n => !tr.names.includes(n) && catOf(n) === "main"),
+    ...tr.names.filter(n => tipByBranch.has(n)),
+    ...[...tipByBranch.keys()].filter(n => !tr.names.includes(n) && catOf(n) === "main"),
   ]
   const rank = (name: string) => defaultBranches.indexOf(name)
 
@@ -197,24 +211,21 @@ export function buildModel(g: Git, opts: BuildOptions = {}): Model {
   const ordered = br.filter(visible)
   measureLanes(ordered, idx)
 
-  const dataTip = (b: Lane) => b.list.length ? idx.get(b.list[0])! : (b.tipAt ?? 0)
-  ordered.sort((a, b) => {
-    // default branch at the top, in list order; the rest by date, newest first
-    const ta = rank(a.name), tb = rank(b.name)
-    if (ta >= 0 || tb >= 0) return (ta < 0 ? 99 : ta) - (tb < 0 ? 99 : tb)
-    return dataTip(b) - dataTip(a)
-  })
+  // A pinned lane sorts above every unpinned one; within each group, newest first.
+  const pinned = (b: Lane) => { const i = rank(b.name); return i < 0 ? Number.MAX_SAFE_INTEGER : i }
+  ordered.sort((a, b) => pinned(a) - pinned(b) || tipIndex(idx, b) - tipIndex(idx, a))
   const MAXY = packLanesY(ordered, rank, hasTags ? 3 : 1)
 
   const X = cs.map((_, i) => i * DX)
   const Y = cs.map(c => owner.get(c.hash)!.y)
   const B = cs.map(c => owner.get(c.hash)!)
 
-  const targetHash = defaultBranches.length ? (loc.get(defaultBranches[0]) ?? headHash) : headHash
+  const firstDefault = defaultBranches[0]
+  const targetHash = (firstDefault && tipByBranch.get(firstDefault)) || headHash
   const inactive = detectInactive(g, br, cs, targetHash, n => rank(n) >= 0)
 
   return {
-    repo: g.repo, headHash, commits, cs, N, lanes: br, owner, loc, idx, byHash,
+    repo: g.repo, headHash, commits, cs, N, lanes: br, owner, tipByBranch, idx, byHash,
     X, Y, B, MAXY, labels, inactive, hasTags,
     defaultBranches, defaultBranchSource: tr.source,
   }

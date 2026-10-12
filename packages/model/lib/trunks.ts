@@ -59,7 +59,7 @@ function fromConfig(g: Git): string[] {
 }
 
 /** Only the branches the name convention calls `main` and that actually exist. */
-function fromNames(g: Git, exists: (n: string) => boolean): string[] {
+function fromNames(exists: (n: string) => boolean): string[] {
   return ["main", "master", "prod", "production"].filter(n => exists(n))
 }
 
@@ -74,7 +74,7 @@ export function resolveDefaultBranches(g: Git, exists: (n: string) => boolean, o
   if (cfg.length) return { names: cfg, source: "config" }
   const rh = fromRemoteHead(g)
   if (rh.length) return { names: rh, source: "remote-head" }
-  const nm = fromNames(g, exists)
+  const nm = fromNames(exists)
   if (nm.length) return { names: nm, source: "name" }
   return { names: [], source: "none" }
 }

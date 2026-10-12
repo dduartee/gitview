@@ -28,12 +28,17 @@ export const SIM_ENV = {
   GIT_COMMITTER_EMAIL: "gitview@local",
 }
 
+/**
+ * Wraps a `run` into the throwing `git`: a failed command becomes an error, a successful one
+ * returns stdout. Shared by the real adapter and the fake, so the failure rule lives once.
+ */
+export const throwingGit = (run: Git["run"]): Git["git"] => (...a: string[]) => {
+  const r = run(a)
+  if (r.code) throw new Error(`git ${a[0]} failed`)
+  return r.out
+}
+
 export function createGit(repo: string): Git {
   const run = (a: string[], env?: Record<string, string>): GitResult => execGit(repo, a, env)
-  const git = (...a: string[]): string => {
-    const r = run(a)
-    if (r.code) throw new Error(`git ${a[0]} failed`)
-    return r.out
-  }
-  return { repo, run, git }
+  return { repo, run, git: throwingGit(run) }
 }

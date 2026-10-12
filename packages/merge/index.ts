@@ -59,7 +59,8 @@ const parseConflicts = (out: string): string[] => {
 // git >= 2.38 has `merge-tree --write-tree`, which gives the exact conflict; before that, only an estimate.
 function supportsMergeTree(g: Git): { exact: boolean; version: string } {
   const gv = g.run(["--version"]).out.match(/(\d+)\.(\d+)(?:\.(\d+))?/)
-  const exact = !!gv && (+gv[1] > 2 || (+gv[1] === 2 && +gv[2] >= 38))
+  const major = Number(gv?.[1] ?? 0), minor = Number(gv?.[2] ?? 0)
+  const exact = major > 2 || (major === 2 && minor >= 38)
   return { exact, version: gv?.[0] ?? "?" }
 }
 
@@ -99,7 +100,8 @@ function evaluateBranch(g: Git, m: Model, r: Ref, t: Ref, exact: boolean): Branc
   const files = (a: string, b: string) =>
     (base && !merged ? g.run(["diff", "--name-only", a, b]).out.split("\n").filter(Boolean) : [])
   const mine = files(base, r.tip)
-  const overlap = mine.filter(f => new Set(files(base, t.tip)).has(f))
+  const theirs = new Set(files(base, t.tip))
+  const overlap = mine.filter(f => theirs.has(f))
 
   const conflicts = exact && !merged ? conflictsBetween(g, t.tip, r.tip) : null
   return {
@@ -130,8 +132,9 @@ function planFor(g: Git, m: Model, name: string, rows: BranchRow[], refs: Ref[],
         if (c.code === 0) cursor = c.out.trim()
       } else if (r.code === 1) { clean = false; conflicts = parseConflicts(r.out) }
     }
-    if (conflicts.length) x.risk = conflicts.length <= 2 ? "medium" : "high"   // risk accounts for the suggested order
-    return { name: x.name, tip: x.tip, clean, conflicts, ahead: x.ahead, behind: x.behind, risk: x.risk }
+    // risk accounts for the suggested order, so it is recomputed from this step's conflicts
+    const risk = conflicts.length ? (conflicts.length <= 2 ? "medium" : "high") : x.risk
+    return { name: x.name, tip: x.tip, clean, conflicts, ahead: x.ahead, behind: x.behind, risk }
   })
   return { name, steps }
 }
@@ -153,6 +156,29 @@ export function planLines(R: Report): { t: string; c: string }[] {
   return L
 }
 
+/** Cap on the conflict matrix. `merge-tree` costs O(n²), so only the newest open branches enter. */
+const MATRIX_CAP = 40
+
+/**
+ * Lane × lane conflicts, `null` when the git is too old for an exact conflict.
+ *
+ * WARNING: the cut is silent. With more open branches than `MATRIX_CAP` the matrix comes out
+ * incomplete and nothing in the terminal warns about it — the HTML says so, the TUI does not. See open issue.
+ */
+function buildMatrix(g: Git, R: Report): Matrix | null {
+  if (!R.exact) return null
+  const open = R.branches.filter(b => !b.merged).slice(0, MATRIX_CAP)
+  const n = open.length
+  const cells = open.map(() => open.map(() => [] as string[]))
+  for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) {
+    const mc = g.run(["merge-tree", "--write-tree", "--name-only", open[i].tip, open[j].tip])
+    if (mc.code !== 1) continue
+    const files = parseConflicts(mc.out)
+    cells[i][j] = files; cells[j][i] = files
+  }
+  return { names: open.map(b => b.name), cells }
+}
+
 export function createMergePlanner(g: Git, m: Model, flags: MergeFlags = {}) {
   let cached: Report | null = null
   let cachedMatrix: Matrix | null | undefined
@@ -161,7 +187,7 @@ export function createMergePlanner(g: Git, m: Model, flags: MergeFlags = {}) {
     if (cached) return cached
 
     const { exact, version } = supportsMergeTree(g)
-    const refs: Ref[] = [...m.loc].map(([name, tip]) => ({ name, tip, cat: catOf(name) }))
+    const refs: Ref[] = [...m.tipByBranch].map(([name, tip]) => ({ name, tip, cat: catOf(name) }))
     const { main, dev } = resolveTargets(g, m, refs, flags)
 
     const rows: BranchRow[] = []
@@ -179,24 +205,10 @@ export function createMergePlanner(g: Git, m: Model, flags: MergeFlags = {}) {
     })
   }
 
-  /**
-   * Lane × lane conflicts. `merge-tree` costs O(n²), so it cuts at the 40 most recent
-   * open branches.
-   *
-   * WARNING: the cut is silent. With more than 40 open branches the matrix comes out
-   * incomplete and nothing in the terminal warns about it — the HTML says so, the TUI does not. See open issue.
-   */
+  /** Cached wrapper: the matrix is a second O(n²) pass, so it is computed at most once. */
   function getMatrix(): Matrix | null {
     if (cachedMatrix !== undefined) return cachedMatrix
-    const R = getReport()
-    if (!R.exact) return (cachedMatrix = null)
-    const open = R.branches.filter(b => !b.merged).slice(0, 40), n = open.length
-    const cells = open.map(() => open.map(() => [] as string[]))
-    for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) {
-      const mc = g.run(["merge-tree", "--write-tree", "--name-only", open[i].tip, open[j].tip])
-      if (mc.code === 1) cells[i][j] = cells[j][i] = parseConflicts(mc.out)
-    }
-    return (cachedMatrix = { names: open.map(b => b.name), cells })
+    return (cachedMatrix = buildMatrix(g, getReport()))
   }
 
   return { getReport, getMatrix, planLines }

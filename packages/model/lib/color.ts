@@ -17,6 +17,8 @@ export const BG = "#14161b"
  * exists without it competing with what matters.
  */
 export const mix = (hex: string): string => {
-  const a = parseInt(hex.slice(1), 16), b = parseInt(BG.slice(1), 16)
-  return "#" + [16, 8, 0].map(s => Math.round(((a >> s) & 255) * .28 + ((b >> s) & 255) * .72).toString(16).padStart(2, "0")).join("")
+  const from = parseInt(hex.slice(1), 16), to = parseInt(BG.slice(1), 16)
+  const channel = (shift: number) =>
+    Math.round(((from >> shift) & 255) * .28 + ((to >> shift) & 255) * .72).toString(16).padStart(2, "0")
+  return "#" + [16, 8, 0].map(channel).join("")
 }

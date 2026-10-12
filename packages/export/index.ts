@@ -93,6 +93,8 @@ export function exportHtml(g: Git, m: Model, report: Report, matrix: Matrix | nu
   }
   const data = JSON.stringify(project(g, m, report, matrix)).replace(/</g, "\\u003c")
   const out = resolve(file)
+  // Function replacement, not a string one: `data` carries commit subjects, and a string
+  // pattern would expand `$&` and friends out of them.
   writeFileSync(out, tpl.replace("window.__GRAPH__ = null", () => `window.__GRAPH__ = ${data}`))
   return out
 }
