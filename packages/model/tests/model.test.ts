@@ -6,6 +6,10 @@ import { describe, expect, test } from "bun:test"
 import { createFakeGit, leftRight, logOutput } from "../../git/fake.ts"
 import { buildModel, catOf, visible, DX } from "../index.ts"
 
+/** `inactive` is keyed by lane, so a name lookup goes through `lanes`. */
+const inactive = (m: ReturnType<typeof buildModel>, name: string) =>
+  m.inactive.has(m.lanes.find(b => b.name === name)!)
+
 /**
  * Repo with 5 commits: main, three branches that come off `a1`, and a continuation.
  *
@@ -139,17 +143,20 @@ describe("buildModel", () => {
     expect(m.owner.get("w1")).toBe(branchless[0])
     // and the branchless lane takes a spot on the Y axis, like any other
     expect(m.Y[1]).toBe(branchless[0].y)
+    // and it is inactive: a lane with no branch has nothing left to deliver. Keying the
+    // set by branch name used to skip exactly these lanes.
+    expect(m.inactive.has(branchless[0])).toBe(true)
   })
 
   test("ahead 0 marks the lane as inactive", () => {
     const m = buildModel(repo({ "rev-list --left-right --count a1...d1": { out: leftRight(3, 0) } }))
-    expect(m.inactive.has("topic/spike")).toBe(true)
-    expect(m.inactive.has("hotfix/urgent")).toBe(false)
+    expect(inactive(m, "topic/spike")).toBe(true)
+    expect(inactive(m, "hotfix/urgent")).toBe(false)
   })
 
   test("main and master are never marked inactive", () => {
     const m = buildModel(repo())
-    expect(m.inactive.has("main")).toBe(false)
+    expect(inactive(m, "main")).toBe(false)
   })
 })
 

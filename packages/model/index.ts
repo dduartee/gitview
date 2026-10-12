@@ -71,8 +71,8 @@ export type Model = {
   MAXY: number
   /** Fixed labels at the top (today only "tags"). */
   labels: { t: string; y: number }[]
-  /** Lanes with nothing to deliver: merged or `ahead 0`. */
-  inactive: Set<string>
+  /** Lanes with nothing to deliver: merged, `ahead 0`, or with no branch at all. */
+  inactive: Set<Lane>
   hasTags: boolean
   /** Resolved default branch names, and where they came from. Goes to the export so the template does not guess. */
   defaultBranches: string[]
@@ -84,10 +84,17 @@ export type BuildOptions = {
   defaultBranches?: string[]
 }
 
+/**
+ * The lane's tip: its most recent commit. `list` is newest-first, and a lane whose tip was
+ * claimed by another branch carries `tipAt` instead.
+ */
+export const laneTip = (cs: Commit[], b: Lane): string =>
+  b.list[0] ?? (b.tipAt !== undefined ? cs[b.tipAt].hash : "")
+
 /** Color of a lane, already desaturated when it is inactive. */
-export const laneColor = (m: { inactive: Set<string> }, b: Lane): string => {
+export const laneColor = (m: { inactive: Set<Lane> }, b: Lane): string => {
   const c = COL[b.cat] ?? "#b79cf0"
-  return b.name && m.inactive.has(b.name) ? mix(c) : c
+  return m.inactive.has(b) ? mix(c) : c
 }
 
 /** Does a lane occupy a line? Invisible ones do not, but they stay in the label column. */
@@ -142,15 +149,23 @@ function linkChildren(cs: Commit[]): Map<string, string[]> {
  * `target` is the first resolved default branch, not the literal `"main"` — it is into it
  * that work flows. Without a default branch, it falls back to HEAD: against HEAD nothing is
  * "behind", so the set comes out empty instead of wrong.
+ *
+ * Keyed by lane, not by name: a lane with no branch (the leftover commits of a deleted
+ * branch, reachable through a merge parent) has nothing left to deliver either — its branch
+ * is gone. Keying by name silently skipped exactly those lanes, which is why a merged
+ * branchless lane stayed bright while an identical named one went pastel.
  */
 function detectInactive(
-  g: Git, loc: Map<string, string>, targetHash: string, isDefaultBranchName: (n: string) => boolean,
-): Set<string> {
-  const inactive = new Set<string>()
-  for (const [n, h] of loc) {
-    if (isDefaultBranchName(n)) continue
-    const r = g.run(["rev-list", "--left-right", "--count", `${targetHash}...${h}`]).out.trim().split(/\s+/).map(Number)
-    if (r[1] === 0) inactive.add(n)
+  g: Git, lanes: Lane[], cs: Commit[], targetHash: string, isDefaultBranchName: (n: string) => boolean,
+): Set<Lane> {
+  const inactive = new Set<Lane>()
+  for (const b of lanes) {
+    if (!b.name) { inactive.add(b); continue }
+    if (isDefaultBranchName(b.name)) continue
+    const tip = laneTip(cs, b)
+    if (!tip) continue
+    const r = g.run(["rev-list", "--left-right", "--count", `${targetHash}...${tip}`]).out.trim().split(/\s+/).map(Number)
+    if (r[1] === 0) inactive.add(b)
   }
   return inactive
 }
@@ -196,7 +211,7 @@ export function buildModel(g: Git, opts: BuildOptions = {}): Model {
   const B = cs.map(c => owner.get(c.hash)!)
 
   const targetHash = defaultBranches.length ? (loc.get(defaultBranches[0]) ?? headHash) : headHash
-  const inactive = detectInactive(g, loc, targetHash, n => rank(n) >= 0)
+  const inactive = detectInactive(g, br, cs, targetHash, n => rank(n) >= 0)
 
   return {
     repo: g.repo, headHash, commits, cs, N, lanes: br, owner, loc, idx, byHash,

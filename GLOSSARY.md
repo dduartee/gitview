@@ -35,8 +35,9 @@ The grouping of a lane by name convention — `main`, `dev`, `release`, `hotfix`
 _Avoid_: type, class, group
 
 **Inactive**:
-A lane with nothing to deliver: it has already been merged into the target, or is at
-`ahead 0`. Rendered in low-contrast pastel and marked `✓merged`. It exists, but carries no
+A lane with nothing left to deliver: it has already been merged into the target, is at
+`ahead 0`, or has no branch at all — the branch that carried it is gone, so nothing is left
+to deliver. Rendered in low-contrast pastel and marked `✓merged`. It exists, but carries no
 weight.
 _Avoid_: dead, old, archived
 

@@ -9,7 +9,7 @@
 // a cell.
 
 import { RGBA, type OptimizedBuffer } from "@opentui/core"
-import { BG, laneColor, DX, mix, visible, type Lane, type Model } from "../../model/index.ts"
+import { BG, laneColor, laneTip, DX, mix, visible, type Lane, type Model } from "../../model/index.ts"
 
 const EDGE = "#9aa3b2"
 export const GUT = 12, TOP = 1, BOT = 2
@@ -148,7 +148,7 @@ export class Painter {
 
   /** 11 columns cannot fit `feature/imu-admin-upload-curation`: abbreviates the known prefix. */
   private shortName(b: Lane): string {
-    const tip = b.list[b.list.length - 1] ?? (b.tipAt !== undefined ? this.m.cs[b.tipAt].hash : "")
+    const tip = laneTip(this.m.cs, b)
     const abbreviated = (b.name
       ? b.name.replace(/^(feature|feat)\//, "f/").replace(/^(hotfix|fix)\//, "h/").replace(/^release\//, "r/")
           .replace(/^(docs|doc)\//, "d/").replace(/^chore\//, "c/").replace(/^(migracao|migration)\//, "m/")

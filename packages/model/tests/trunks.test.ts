@@ -1,4 +1,4 @@
-// Tests of default branch resolution, through the interface: `buildModel(git, { trunk })`.
+// Tests of default branch resolution, through the interface: `buildModel(git, { defaultBranches })`.
 //
 // No import of `lib/`. The sources of truth are the git fake and the repo on disk.
 
@@ -25,6 +25,10 @@ const repo = (over: Record<string, { out: string; code?: number }> = {}) => crea
 
 const build = (over?: Record<string, { out: string; code?: number }>, opts?: BuildOptions) =>
   buildModel(repo(over), opts)
+
+/** `inactive` is keyed by lane, so a name lookup goes through `lanes`. */
+const inactive = (m: ReturnType<typeof build>, name: string) =>
+  m.inactive.has(m.lanes.find(b => b.name === name)!)
 
 describe("default branch source", () => {
   test("--default-branch beats everything", () => {
@@ -116,12 +120,12 @@ describe("inactive detection", () => {
       "rev-list --left-right --count m1...f1": { out: "1\t0\n" },
       "rev-list --left-right --count d1...f2": { out: "0\t0\n" },
     })
-    expect(m.inactive.has("feature/login")).toBe(true)
+    expect(inactive(m, "feature/login")).toBe(true)
   })
 
   test("no default branch is a default branch of itself: it never enters the inactive list", () => {
     const m = build({}, { defaultBranches: ["main", "develop"] })
-    expect(m.inactive.has("main")).toBe(false)
-    expect(m.inactive.has("develop")).toBe(false)
+    expect(inactive(m, "main")).toBe(false)
+    expect(inactive(m, "develop")).toBe(false)
   })
 })
