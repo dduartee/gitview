@@ -1,25 +1,26 @@
-// O model: a atribuição de cada commit a uma lane, mais a ordem e a posição das lanes.
+// The model: the assignment of each commit to a lane, plus the order and position of
+// the lanes.
 //
-// É a única coisa que os dois renderizadores compartilham, e não sabe desenhar nada.
-// Construído uma vez, a partir de leitura do repositório — nada aqui escreve em ref
-// nem em working tree.
+// It is the only thing the two renderers share, and it knows nothing about drawing.
+// Built once, from reading the repository — nothing here writes to a ref or to the
+// working tree.
 //
-// `buildModel` é orquestração: lê, atribui lanes, mede, ordena e empacota, nessa ordem.
-// A parte difícil mora em `lib/lanes.ts` (quem é dono de cada commit) e `lib/layout.ts`
-// (onde cada lane fica no eixo Y).
+// `buildModel` is orchestration: read, assign lanes, measure, order and pack, in that
+// order. The hard part lives in `lib/lanes.ts` (who owns each commit) and
+// `lib/layout.ts` (where each lane sits on the Y axis).
 
 import type { Git } from "../git/index.ts"
 import { BG, COL, mix } from "./lib/color.ts"
-import { PRIO, catOf } from "./lib/category.ts"
-import { atribuirLanes } from "./lib/lanes.ts"
-import { DX, RH, empacotarY, medirLanes } from "./lib/layout.ts"
-import { describeTrunks, isTrunk, resolveTrunks, type TrunkSource } from "./lib/trunks.ts"
+import { CATEGORY_ORDER, catOf } from "./lib/category.ts"
+import { assignLanes } from "./lib/lanes.ts"
+import { DX, RH, packLanesY, measureLanes } from "./lib/layout.ts"
+import { describeDefaultBranches, isDefaultBranch, resolveDefaultBranches, type DefaultBranchSource } from "./lib/trunks.ts"
 
-// `mix` e os troncos saem pela interface porque o TUI e o export precisam deles, e
-// `lib/` é privado. Cor divergente entre renderizadores é bug de leitura; lista de
-// tronco duplicada dentro do template é o mesmo tipo de bug.
-export { COL, mix, BG, isTrunk, resolveTrunks, describeTrunks, DX, RH, PRIO, catOf }
-export type { TrunkSource }
+// `mix` and the default branches leave through the interface because the TUI and the
+// export need them, and `lib/` is private. Divergent color between renderers is a reading
+// bug; a default-branch list duplicated inside the template is the same kind of bug.
+export { COL, mix, BG, isDefaultBranch, resolveDefaultBranches, describeDefaultBranches, DX, RH, CATEGORY_ORDER, catOf }
+export type { DefaultBranchSource }
 
 export type Commit = {
   hash: string
@@ -31,7 +32,7 @@ export type Commit = {
   refs: string[]
 }
 
-/** Uma branch como uma linha do grafo. `list` são os hashes, do mais recente para o mais antigo. */
+/** A branch as one line of the graph. `list` are the hashes, from newest to oldest. */
 export type Lane = {
   name: string
   label: string
@@ -39,28 +40,28 @@ export type Lane = {
   list: string[]
   x0: number
   x1: number
-  /** Extensão horizontal ocupada, em colunas de terminal (inclui o nome). */
+  /** Horizontal extent occupied, in terminal columns (includes the name). */
   L: number
   R: number
-  /** Linha vertical. No HTML é reindexada para 0..n-1 na projeção. */
+  /** Vertical line. In the HTML it is reindexed to 0..n-1 in the graph data. */
   y: number
-  /** Commit da ponta quando ele não está no log — a lane fica invisível mas não some. */
+  /** Tip commit when it is not in the log — the lane is invisible but does not disappear. */
   tipAt?: number
 }
 
 export type Model = {
   repo: string
   headHash: string
-  /** Ordem do `git log`: mais recente primeiro. */
+  /** `git log` order: newest first. */
   commits: Commit[]
-  /** O mesmo, invertido: mais antigo primeiro. É o eixo X. */
+  /** The same, reversed: oldest first. It is the X axis. */
   cs: Commit[]
   N: number
-  /** Todas as lanes, incluindo invisíveis e fantasmas. */
+  /** All lanes, including invisible and branchless ones. */
   lanes: Lane[]
-  /** Lane dona de cada commit. */
+  /** Lane that owns each commit. */
   owner: Map<string, Lane>
-  /** Nome da branch -> hash da ponta. Inclui refs remotas achatadas para o nome curto. */
+  /** Branch name -> tip hash. Includes remote refs flattened to the short name. */
   loc: Map<string, string>
   idx: Map<string, number>
   byHash: Map<string, Commit>
@@ -68,34 +69,34 @@ export type Model = {
   Y: number[]
   B: Lane[]
   MAXY: number
-  /** Rótulos fixos do topo (hoje só "tags"). */
+  /** Fixed labels at the top (today only "tags"). */
   labels: { t: string; y: number }[]
-  /** Lanes que nada têm a entregar: fundidas ou `ahead 0`. */
-  inactivas: Set<string>
+  /** Lanes with nothing to deliver: merged or `ahead 0`. */
+  inactive: Set<string>
   hasTags: boolean
-  /** Nomes de tronco resolvidos, e de onde vieram. Vai para o export para o template não adivinhar. */
-  troncos: string[]
-  troncosSource: TrunkSource
+  /** Resolved default branch names, and where they came from. Goes to the export so the template does not guess. */
+  defaultBranches: string[]
+  defaultBranchSource: DefaultBranchSource
 }
 
 export type BuildOptions = {
-  /** `--trunk a,b`, já splitado. Vence `.gitview.json`, que vence `origin/HEAD`, que vence o nome. */
-  trunk?: string[]
+  /** `--default-branch a,b`, already split. Beats `.gitview.json`, which beats `origin/HEAD`, which beats the name. */
+  defaultBranches?: string[]
 }
 
-/** Cor de uma lane, já dessaturada quando ela está inativa. */
-export const corLane = (m: { inactivas: Set<string> }, b: Lane): string => {
+/** Color of a lane, already desaturated when it is inactive. */
+export const laneColor = (m: { inactive: Set<string> }, b: Lane): string => {
   const c = COL[b.cat] ?? "#b79cf0"
-  return b.name && m.inactivas.has(b.name) ? mix(c) : c
+  return b.name && m.inactive.has(b.name) ? mix(c) : c
 }
 
-/** Uma lane ocupa linha? As invisíveis não, mas continuam na coluna de rótulos. */
-export const visivel = (b: Lane): boolean => b.list.length > 0 || b.tipAt !== undefined
+/** Does a lane occupy a line? Invisible ones do not, but they stay in the label column. */
+export const visible = (b: Lane): boolean => b.list.length > 0 || b.tipAt !== undefined
 
-/** Lê o log e transforma cada linha no commit correspondente. */
-function lerCommits(g: Git): Commit[] {
-  const bruto = g.git("log", "--all", "--date-order", "--pretty=format:%H%x1f%P%x1f%an%x1f%ae%x1f%aI%x1f%D%x1f%s%x1e")
-  return bruto
+/** Reads the log and turns each line into the corresponding commit. */
+function readCommits(g: Git): Commit[] {
+  const raw = g.git("log", "--all", "--date-order", "--pretty=format:%H%x1f%P%x1f%an%x1f%ae%x1f%aI%x1f%D%x1f%s%x1e")
+  return raw
     .split("\x1e").map(r => r.trim()).filter(Boolean).map(r => {
       const [hash, p, author, email, date, refs, subject] = r.split("\x1f")
       return { hash, parents: p ? p.split(" ") : [], author, email, date, subject, refs: refs ? refs.split(", ").filter(Boolean) : [] }
@@ -103,12 +104,12 @@ function lerCommits(g: Git): Commit[] {
 }
 
 /**
- * Nome curto de branch -> hash da ponta.
+ * Short branch name -> tip hash.
  *
- * Ignora tags e refs que não são branch. Remote é achatado (`origin/x` → `x`), e o local
- * ganha quando os dois apontam para nomes iguais — o que você tem em disco manda.
+ * Ignores tags and refs that are not branches. Remote is flattened (`origin/x` → `x`), and
+ * the local wins when both point to the same names — what you have on disk rules.
  */
-function ligarRefs(commits: Commit[]): Map<string, string> {
+function linkRefs(commits: Commit[]): Map<string, string> {
   const loc = new Map<string, string>(), rem = new Map<string, string>()
   for (const c of commits) for (const r0 of c.refs) {
     if (r0.startsWith("tag: ") || r0.startsWith("refs/")) continue
@@ -125,8 +126,8 @@ function ligarRefs(commits: Commit[]): Map<string, string> {
   return loc
 }
 
-/** hash -> hashes dos filhos. Usado para descobrir a lane de um commit sem ref. */
-function ligarFilhos(cs: Commit[]): Map<string, string[]> {
+/** hash -> child hashes. Used to discover the lane of a commit without a ref. */
+function linkChildren(cs: Commit[]): Map<string, string[]> {
   const kids = new Map<string, string[]>()
   for (const c of cs) for (const p of c.parents) {
     if (!kids.has(p)) kids.set(p, [])
@@ -136,70 +137,70 @@ function ligarFilhos(cs: Commit[]): Map<string, string[]> {
 }
 
 /**
- * Lanes que nada têm a entregar: fundidas, ou apenas atrás do destino.
+ * Lanes with nothing to deliver: merged, or merely behind the target.
  *
- * `alvo` é o primeiro tronco resolvido, não o literal `"main"` — é para ele que o trabalho
- * flui. Sem tronco, cai no HEAD: contra o HEAD nada está "atrás", então o conjunto sai vazio
- * em vez de sair errado.
+ * `target` is the first resolved default branch, not the literal `"main"` — it is into it
+ * that work flows. Without a default branch, it falls back to HEAD: against HEAD nothing is
+ * "behind", so the set comes out empty instead of wrong.
  */
-function detectarInativas(
-  g: Git, loc: Map<string, string>, alvoHash: string, ehTronco: (n: string) => boolean,
+function detectInactive(
+  g: Git, loc: Map<string, string>, targetHash: string, isDefaultBranchName: (n: string) => boolean,
 ): Set<string> {
-  const inactivas = new Set<string>()
+  const inactive = new Set<string>()
   for (const [n, h] of loc) {
-    if (ehTronco(n)) continue
-    const r = g.run(["rev-list", "--left-right", "--count", `${alvoHash}...${h}`]).out.trim().split(/\s+/).map(Number)
-    if (r[1] === 0) inactivas.add(n)
+    if (isDefaultBranchName(n)) continue
+    const r = g.run(["rev-list", "--left-right", "--count", `${targetHash}...${h}`]).out.trim().split(/\s+/).map(Number)
+    if (r[1] === 0) inactive.add(n)
   }
-  return inactivas
+  return inactive
 }
 
 export function buildModel(g: Git, opts: BuildOptions = {}): Model {
-  const commits = lerCommits(g)
-  if (!commits.length) throw new Error("repositório sem commits")
+  const commits = readCommits(g)
+  if (!commits.length) throw new Error("repository with no commits")
   const headHash = g.git("rev-parse", "HEAD").trim()
 
-  const cs = [...commits].reverse()                                   // mais antigo primeiro
+  const cs = [...commits].reverse()                                   // oldest first
   const N = cs.length
   const byHash = new Map(cs.map(c => [c.hash, c]))
   const idx = new Map(cs.map((c, i) => [c.hash, i]))
-  const kids = ligarFilhos(cs)
-  const loc = ligarRefs(commits)
+  const kids = linkChildren(cs)
+  const loc = linkRefs(commits)
 
-  const { owner, br } = atribuirLanes(loc, idx, byHash, kids, cs)
+  const { owner, br } = assignLanes(loc, idx, byHash, kids, cs)
 
-  // Resolvido antes do layout: pinning e detecção de inativas dependem da lista.
-  const tr = resolveTrunks(g, n => loc.has(n), { flag: opts.trunk })
-  const troncos = [
+  // Resolved before layout: pinning and inactive detection depend on the list.
+  const tr = resolveDefaultBranches(g, n => loc.has(n), { flag: opts.defaultBranches })
+  const defaultBranches = [
     ...tr.names.filter(n => loc.has(n)),
     ...[...loc.keys()].filter(n => !tr.names.includes(n) && catOf(n) === "main"),
   ]
-  const rank = (nome: string) => troncos.indexOf(nome)
+  const rank = (name: string) => defaultBranches.indexOf(name)
 
   const hasTags = commits.some(c => c.refs.some(r => r.startsWith("tag: ")))
   const labels: { t: string; y: number }[] = hasTags ? [{ t: "tags", y: 0 }] : []
-  const ordenadas = br.filter(visivel)
-  medirLanes(ordenadas, idx)
+  const ordered = br.filter(visible)
+  measureLanes(ordered, idx)
 
   const dataTip = (b: Lane) => b.list.length ? idx.get(b.list[0])! : (b.tipAt ?? 0)
-  ordenadas.sort((a, b) => {
-    // tronco no topo, na ordem da lista; o resto por data, mais recente primeiro
+  ordered.sort((a, b) => {
+    // default branch at the top, in list order; the rest by date, newest first
     const ta = rank(a.name), tb = rank(b.name)
     if (ta >= 0 || tb >= 0) return (ta < 0 ? 99 : ta) - (tb < 0 ? 99 : tb)
     return dataTip(b) - dataTip(a)
   })
-  const MAXY = empacotarY(ordenadas, rank, hasTags ? 3 : 1)
+  const MAXY = packLanesY(ordered, rank, hasTags ? 3 : 1)
 
   const X = cs.map((_, i) => i * DX)
   const Y = cs.map(c => owner.get(c.hash)!.y)
   const B = cs.map(c => owner.get(c.hash)!)
 
-  const alvoHash = troncos.length ? (loc.get(troncos[0]) ?? headHash) : headHash
-  const inactivas = detectarInativas(g, loc, alvoHash, n => rank(n) >= 0)
+  const targetHash = defaultBranches.length ? (loc.get(defaultBranches[0]) ?? headHash) : headHash
+  const inactive = detectInactive(g, loc, targetHash, n => rank(n) >= 0)
 
   return {
     repo: g.repo, headHash, commits, cs, N, lanes: br, owner, loc, idx, byHash,
-    X, Y, B, MAXY, labels, inactivas, hasTags,
-    troncos, troncosSource: tr.source,
+    X, Y, B, MAXY, labels, inactive, hasTags,
+    defaultBranches, defaultBranchSource: tr.source,
   }
 }

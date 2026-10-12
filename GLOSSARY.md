@@ -1,108 +1,111 @@
 # gitview
 
-Grafo de histórico git organizado por *lanes* — uma branch por linha — legível tanto num TUI
-quanto num HTML de arquivo único. Existe para responder, num repositório com muitas branches e
-merges, três perguntas que o `git log` não responde rápido: qual lane é cada commit, quais
-branches ainda têm algo a entregar, e em que ordem mesclar.
+Git history graph organised by *lanes* — one branch per row — readable both in a TUI and in a
+single-file HTML. It exists to answer, in a repository with many branches and merges, three
+questions `git log` does not answer quickly: which lane each commit is in, which branches still
+have something to deliver, and in what order to merge.
 
 ## Language
 
-### O grafo
+### The graph
 
 **Lane**:
-Uma branch, ocupando uma linha horizontal do grafo. Derivada por caminhada *first-parent* a
-partir da ponta da branch; é a unidade de leitura, não a de dado — vários commits por lane.
-_Avoid_: linha, row, trilha, serie
+A branch, occupying one horizontal row of the graph. Derived by a *first-parent* walk from the
+branch tip; it is the unit of reading, not the unit of data — several commits per lane. git has
+no term for this, so *lane* is the tool's own word.
+_Avoid_: line, row, track, series
 
-**Ponta (tip)**:
-O commit mais recente de uma lane. É onde o nome da branch aparece, à direita.
-_Avoid_: head, topo, latest
+**Tip**:
+The most recent commit of a lane. It is where the branch name appears, to the right.
+_Avoid_: head, top, latest
 
-**Fantasma (ghost)**:
-Um commit cuja branch de origem já foi apagada. Continua no grafo, desenhado em cinza, e conta
-numa faixa no rodapé. Nenhum commit some por falta de ref.
-_Avoid_: órfão, lixo, dangling
+**Branchless**:
+A commit whose originating branch has already been deleted. It remains in the graph, drawn in
+grey, and is counted in a band at the footer. No commit vanishes for lack of a ref.
+_Avoid_: ghost, orphan, dangling, unreachable, junk
 
-**Lane invisível**:
-Branch cuja ponta está fora do log e portanto não ocupa linha, mas cujo nome ainda aparece na
-coluna de rótulos marcada como invisível.
-_Avoid_: lane vazia, lane oculta
+**Invisible lane**:
+A branch whose tip is outside the log and therefore does not occupy a row, but whose name still
+appears in the label column marked as invisible.
+_Avoid_: empty lane, hidden lane
 
-**Categoria**:
-O agrupamento de uma lane por convenção de nome — `main`, `dev`, `release`, `hotfix`, `feature`,
-`other`. Determina a cor.
-_Avoid_: tipo, classe, grupo
+**Category**:
+The grouping of a lane by name convention — `main`, `dev`, `release`, `hotfix`, `feature`,
+`other`. It determines the colour.
+_Avoid_: type, class, group
 
-**Inativa**:
-Lane que nada tem a entregar: já foi fundida no destino, ou está `ahead 0`. Renderizada em
-pastel de baixo contraste e marcada `✓fundida`. Existe, mas não pesa.
-_Avoid_: morta, velha,arquivada
+**Inactive**:
+A lane with nothing to deliver: it has already been merged into the target, or is at
+`ahead 0`. Rendered in low-contrast pastel and marked `✓merged`. It exists, but carries no
+weight.
+_Avoid_: dead, old, archived
 
-**Tronco**:
-`main`, `master`, `default` ou `base`. Sempre fixado no topo do eixo Y, nessa ordem, com linha
-própria, nunca reordenado por data.
-_Avoid_: base, destino, principal
+**Default branch**:
+`main`, `master`, `default` or `base`. Always pinned at the top of the Y axis, in that order,
+with its own row, never reordered by date.
+_Avoid_: trunk, base, mainline, target
 
-**Destino (alvo)**:
-O tronco para onde uma branch seria fundida. Para `feature` e `other` é o `dev` quando existe,
-senão o `main`; para as demais categorias é o `main`.
-_Avoid_: destino de merge, upstream, base
+**Merge target**:
+The default branch a branch would be merged into. For `feature` and `other` it is `dev` when
+one exists, otherwise `main`; for the other categories it is `main`.
+_Avoid_: merge destination, upstream, base
 
-**Eixo Y**:
-O eixo das lanes. Só as visíveis são desenhadas; o tronco fica sempre pinado, e setas ▲▼ pulam
-para a próxima lane fora da tela.
-_Avoid_: eixo de branches, coluna de lanes
+**Y axis**:
+The lane axis. Only the visible ones are drawn; the default branch stays pinned, and the ▲▼
+arrows jump to the next lane off screen.
+_Avoid_: branch axis, lane column
 
-**Eixo X**:
-O eixo temporal, na ordem do log. A data é formatada conforme o zoom (ano → ano-mês → dia) e
-nunca se sobrepõe.
-_Avoid_: eixo do tempo, linha do tempo
+**X axis**:
+The time axis, in log order. The date is formatted according to the zoom (year → year-month →
+day) and never overlaps.
+_Avoid_: time axis, timeline
 
-### O modelo e suas duas renderizações
+### The model and its two renderings
 
 **Model**:
-A atribuição de cada commit a uma lane, mais a ordem e a posição horizontal das lanes. Calculado
-uma vez, é a única coisa que os dois renderizadores compartilham. Não sabe desenhar nada.
-_Avoid_: dados, estado, grafo (o grafo é o que se vê; o model é o que se calcula)
+The assignment of each commit to a lane, plus the order and horizontal position of the lanes.
+Computed once, it is the only thing the two renderers share. It does not know how to draw
+anything.
+_Avoid_: data, state, graph (the graph is what you see; the model is what you compute)
 
-**Renderizador**:
-Uma das duas maneiras de mostrar o model na tela: o TUI no terminal e o SVG no HTML. São
-implementações independentes, com coordenadas, interação e recursos próprios. Um recurso
-presente num não implica presente no outro.
-_Avoid_: renderer do grafo (sugere que é o mesmo)
+**Renderer**:
+One of the two ways to show the model on screen: the TUI in the terminal and the SVG in the
+HTML. They are independent implementations, with their own coordinates, interaction and
+features. A feature present in one does not imply it is present in the other.
+_Avoid_: graph renderer (suggests it is the same one)
 
-**Projeção**:
-A forma serializada do model que o renderizador HTML consome. É o contrato entre os dois
-renderizadores — e o ponto onde um dado pode divergir do model se for escrito no lugar em vez de
-copiado.
-_Avoid_: payload, export, snapshot
+**Graph data**:
+The serialized form of the model that the HTML renderer consumes. It is the contract between
+the two renderers — and the point where a piece of data can diverge from the model if it is
+written in place instead of copied.
+_Avoid_: projection, payload, export, snapshot
 
-**Plano de merge**:
-A ordem sugerida de fundir as lanes de um mesmo destino, simulando os merges em sequência. Cada
-passo sabe se fica limpo e quais arquivos conflitam.
-_Avoid_: merge planner, ordem de merge
+**Merge plan**:
+The suggested order for merging the lanes that share a target, simulating the merges in
+sequence. Each step knows whether it stays clean and which files conflict.
+_Avoid_: merge planner, merge order
 
-**Matriz de conflitos**:
-A tabela lane × lane dos arquivos em conflito ao mesclar cada par de lanes abertas.
-_Avoid_: tabela de conflitos, pairwise
+**Conflict matrix**:
+The lane × lane table of files in conflict when merging each pair of open lanes.
+_Avoid_: conflict table, pairwise
 
-**Conflito exato**:
-A lista de arquivos em conflito vinda do git de verdade, quando a versão suporta a simulação.
-**Estimativa por arquivos em comum** é o degradê quando não suporta, e o relatório diz qual dos
-dois foi usado.
-_Avoid_: erro de merge (é um aviso prévio, não um erro)
+**Exact conflict**:
+The list of conflicting files coming from real git, when the version supports the simulation.
+**Estimate by shared files** is the degraded mode when it does not, and the report says which
+of the two was used.
+_Avoid_: merge error (it is a prior warning, not an error)
 
-**Simulação**:
-O cálculo do resultado de um merge sem tocar em ref nem em working tree. É a razão de o
-gitview poder existir dentro de um repositório alheio.
+**Simulation**:
+The computation of the result of a merge without touching a ref or the working tree. It is the
+reason gitview can exist inside someone else's repository.
 _Avoid_: dry run, preview
 
-**Risco**:
-`baixo`, `medio` ou `alto`, derivado do número de arquivos em conflito. Considera a ordem sugerida,
-então o mesmo par pode mudar de risco conforme o plano.
-_Avoid_: severidade, prioridade
+**Risk**:
+`low`, `medium` or `high`, derived from the number of files in conflict. It takes the suggested
+order into account, so the same pair can change risk depending on the plan.
+_Avoid_: severity, priority
 
 **Export**:
-O HTML auto-contido de um arquivo só, com o grafo, o plano e a matriz. Abre com duplo clique e
-precisa continuar funcionando depois de ir por e-mail ou anexo de PR.
-_Avoid_: relatório, snapshot, screenshot
+The self-contained single-file HTML, with the graph, the plan and the matrix. It opens on a
+double click and must keep working after travelling by email or as a PR attachment.
+_Avoid_: report, snapshot, screenshot

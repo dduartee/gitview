@@ -1,4 +1,4 @@
-/** Cor por categoria de branch. Espelhada dentro do template HTML — as duas têm de concordar. */
+/** Color by branch category. Mirrored inside the HTML template — the two must agree. */
 export const COL: Record<string, string> = {
   main: "#4c9ffe",
   hotfix: "#b5b9bd",
@@ -8,13 +8,13 @@ export const COL: Record<string, string> = {
   other: "#b79cf0",
 }
 
-/** Fundo do terminal. Entra no cálculo da dessaturação. */
+/** Terminal background. Enters the desaturation calculation. */
 export const BG = "#14161b"
 
 /**
- * Mistura a cor na direção do fundo: `.28` da cor original, `.72` do fundo.
- * É o "pastel de baixo contraste" das lanes inativas — dá pra ver que a lane existe
- * sem ela competir com o que importa.
+ * Mixes the color toward the background: `.28` of the original color, `.72` of the
+ * background. It is the "low-contrast pastel" of inactive lanes — you can see the lane
+ * exists without it competing with what matters.
  */
 export const mix = (hex: string): string => {
   const a = parseInt(hex.slice(1), 16), b = parseInt(BG.slice(1), 16)

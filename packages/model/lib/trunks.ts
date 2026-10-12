@@ -1,73 +1,74 @@
-// Quais lanes são tronco.
+// Which lanes are default branches.
 //
-// Sem import de `../index.ts` de propósito: `catOf` mora em `lib/category.ts` e é
-// reexportado pela interface. Importar o index de dentro do lib criaria o ciclo
-// index → trunks → index, que o `no-circular` do dependency-cruiser rejeita.
+// No import of `../index.ts` on purpose: `catOf` lives in `lib/category.ts` and is
+// re-exported by the interface. Importing the index from inside lib would create the
+// cycle index → trunks → index, which dependency-cruiser's `no-circular` rejects.
 //
-// Um tronco é a linha de longão: a branch que as features miram e que fica fixa no topo
-// do eixo Y. Não dá para adivinhar pelo grafo — medir "quantos descendentes" classifica
-// `origin/21.03` (release velha, ancestral de tudo) acima de `develop`. O que resolve é
-// **declaração**, na ordem de quem tem mais autoridade:
+// A default branch is the long line: the branch features aim at and that stays pinned
+// at the top of the Y axis. It cannot be guessed from the graph — measuring "how many
+// descendants" ranks `origin/21.03` (an old release, ancestor of everything) above
+// `develop`. What resolves it is **declaration**, in order of authority:
 //
-//   1. `--trunk a,b` na linha de comando      — o usuário, agora
-//   2. `.gitview.json` no repo                — o time, versionado
-//   3. `refs/remotes/origin/HEAD`             — o remote, sobre qual branch é default
-//   4. convenção de nome (categoria `main`)   — o padrão de mercado
+//   1. `--default-branch a,b` on the command line — the user, now
+//   2. `.gitview.json` in the repo               — the team, versioned
+//   3. `refs/remotes/origin/HEAD`                — the remote, on which branch is default
+//   4. name convention (category `main`)         — the industry default
 //
-// Cada fonte vence a seguinte. Nenhuma delas é lista fixa no código.
+// Each source beats the next. None of them is a hardcoded list in the code.
 
 import { readFileSync } from "node:fs"
 import { resolve } from "node:path"
 import type { Git } from "../../git/index.ts"
 import { catOf } from "./category.ts"
 
-/** De onde veio a lista. Aparece na UI e no log, para ninguém precisar adivinhar por quê. */
-export type TrunkSource = "flag" | "config" | "remote-head" | "name" | "none"
+/** Where the list came from. Shows in the UI and the log, so nobody has to guess why. */
+export type DefaultBranchSource = "flag" | "config" | "remote-head" | "name" | "none"
 
-export type Trunks = {
-  /** Nomes de branch, achatados de `origin/x` para `x`. */
+export type DefaultBranches = {
+  /** Branch names, flattened from `origin/x` to `x`. */
   names: string[]
-  source: TrunkSource
+  source: DefaultBranchSource
 }
 
-export type TrunkOptions = {
-  /** `--trunk a,b`, já splitado. Vazio = não veio da CLI. */
+export type DefaultBranchOptions = {
+  /** `--default-branch a,b`, already split. Empty = did not come from the CLI. */
   flag?: string[]
 }
 
-/** `refs/remotes/<remote>/HEAD` → `main`. Só funciona se o remote tiver symbolic ref. */
+/** `refs/remotes/<remote>/HEAD` → `main`. Only works if the remote has a symbolic ref. */
 function fromRemoteHead(g: Git): string[] {
   const r = g.run(["symbolic-ref", "--short", "refs/remotes/origin/HEAD"]).out.trim()
   if (!r) return []
-  const nome = r.replace(/^[^/]+\//, "")
-  return nome ? [nome] : []
+  const name = r.replace(/^[^/]+\//, "")
+  return name ? [name] : []
 }
 
-/** `.gitview.json` na raiz do repo, se existir e for parseável. */
+/** `.gitview.json` at the repo root, if it exists and parses. */
 function fromConfig(g: Git): string[] {
   let txt: string
   try { txt = readFileSync(resolve(g.repo, ".gitview.json"), "utf8") }
   catch { return [] }
   try {
     const j = JSON.parse(txt)
-    const t = j?.troncos
+    const t = j?.defaultBranches
     return Array.isArray(t) ? t.filter((x: unknown): x is string => typeof x === "string" && !!x) : []
   } catch (e) {
-    console.error("aviso: .gitview.json inválido, ignorando —", e instanceof Error ? e.message : String(e))
+    console.error("warning: invalid .gitview.json, ignoring —", e instanceof Error ? e.message : String(e))
     return []
   }
 }
 
-/** Só as branches que a convenção de nome chama de `main` e que existem de fato. */
+/** Only the branches the name convention calls `main` and that actually exist. */
 function fromNames(g: Git, exists: (n: string) => boolean): string[] {
   return ["main", "master", "prod", "production"].filter(n => exists(n))
 }
 
 /**
- * Resolve os troncos. `exists` recebe um nome e diz se há branch local com esse nome —
- * injetado para que isto não dependa de `Model` e siga testável pela interface.
+ * Resolves the default branches. `exists` takes a name and says whether a local branch
+ * with that name exists — injected so this does not depend on `Model` and stays testable
+ * through the interface.
  */
-export function resolveTrunks(g: Git, exists: (n: string) => boolean, opts: TrunkOptions = {}): Trunks {
+export function resolveDefaultBranches(g: Git, exists: (n: string) => boolean, opts: DefaultBranchOptions = {}): DefaultBranches {
   if (opts.flag?.length) return { names: opts.flag, source: "flag" }
   const cfg = fromConfig(g)
   if (cfg.length) return { names: cfg, source: "config" }
@@ -79,23 +80,23 @@ export function resolveTrunks(g: Git, exists: (n: string) => boolean, opts: Trun
 }
 
 /**
- * Um nome conta como tronco tanto pelo nome exato quanto pela categoria `main`.
+ * A name counts as a default branch both by its exact name and by category `main`.
  *
- * A categoria cobre `team/platform/main`, que não está em nenhuma lista e mesmo assim é
- * tronco. `catOf` já faz esse julgamento e é a mesma função que dá a cor, então as duas
- * coisas concordam por construção.
+ * The category covers `team/platform/main`, which is in no list and is still a default
+ * branch. `catOf` already makes that judgement and is the same function that gives the
+ * color, so the two agree by construction.
  */
-export const isTrunk = (nome: string, tr: Trunks): boolean =>
-  tr.names.includes(nome) || catOf(nome) === "main"
+export const isDefaultBranch = (name: string, db: DefaultBranches): boolean =>
+  db.names.includes(name) || catOf(name) === "main"
 
-/** Uma linha para a status bar / cabeçalho do HTML: de onde a lista veio. */
-export const describeTrunks = (tr: Trunks): string => {
-  if (tr.source === "none" || !tr.names.length) return "sem tronco detectado"
-  const lista = tr.names.join(", ")
-  switch (tr.source) {
-    case "flag": return `tronco (--trunk): ${lista}`
-    case "config": return `tronco (.gitview.json): ${lista}`
-    case "remote-head": return `tronco (origin/HEAD): ${lista}`
-    default: return `tronco (convenção de nome): ${lista}`
+/** One line for the status bar / HTML header: where the list came from. */
+export const describeDefaultBranches = (db: DefaultBranches): string => {
+  if (db.source === "none" || !db.names.length) return "no default branch detected"
+  const list = db.names.join(", ")
+  switch (db.source) {
+    case "flag": return `default branch (--default-branch): ${list}`
+    case "config": return `default branch (.gitview.json): ${list}`
+    case "remote-head": return `default branch (origin/HEAD): ${list}`
+    default: return `default branch (name convention): ${list}`
   }
 }

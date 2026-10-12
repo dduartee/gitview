@@ -1,14 +1,14 @@
-// Regressão do bug do `exportHtml` renumerando `b.y` no lugar.
+// Regression for the `exportHtml` bug that renumbered `b.y` in place.
 //
-// Antes do split, `exportHtml` fazia `vis.forEach((b, i) => { b.y = i })` direto nos
-// objetos `Br` vivos. O TUI desenha os commits a partir de `Y` (snapshot de primitivos,
-// portanto correto) e os nomes das lanes a partir de `lane.y` (o objeto, renumerado).
-// Aperta `e` para exportar de dentro do TUI, o arquivo sai certo e o grafo volta
-// desalinhado: commits nas linhas certas, nomes nas linhas erradas.
+// Before the split, `exportHtml` did `vis.forEach((b, i) => { b.y = i })` directly on
+// the live `Br` objects. The TUI draws commits from `Y` (a snapshot of primitives,
+// therefore correct) and lane names from `lane.y` (the object, renumbered). Press `e` to
+// export from inside the TUI, the file comes out right and the graph comes back
+// misaligned: commits on the right rows, names on the wrong rows.
 
 import { describe, expect, test } from "bun:test"
 import { createFakeGit, logOutput } from "../../git/fake.ts"
-import { buildModel, visivel } from "../../model/index.ts"
+import { buildModel, visible } from "../../model/index.ts"
 import { createMergePlanner } from "../../merge/index.ts"
 import { project } from "../index.ts"
 
@@ -35,54 +35,54 @@ const build = () => {
   return { g, m, planner: createMergePlanner(g, m) }
 }
 
-describe("project não muta o model", () => {
-  test("os y das lanes do model são os mesmos depois da projeção", () => {
+describe("project does not mutate the model", () => {
+  test("the model's lane y values are the same after projection", () => {
     const { g, m, planner } = build()
 
-    const antes = m.lanes.filter(visivel).map(b => [b.name, b.y])
-    expect(antes.length).toBeGreaterThan(0)
+    const before = m.lanes.filter(visible).map(b => [b.name, b.y])
+    expect(before.length).toBeGreaterThan(0)
 
     project(g, m, planner.getReport(), planner.getMatrix())
 
-    const depois = m.lanes.filter(visivel).map(b => [b.name, b.y])
-    expect(depois).toEqual(antes)
+    const after = m.lanes.filter(visible).map(b => [b.name, b.y])
+    expect(after).toEqual(before)
   })
 
-  test("exportar duas vezes dá a mesma projeção", () => {
+  test("exporting twice yields the same projection", () => {
     const { g, m, planner } = build()
     const a = project(g, m, planner.getReport(), planner.getMatrix())
     const b = project(g, m, planner.getReport(), planner.getMatrix())
     expect(b.lanes).toEqual(a.lanes)
   })
 
-  test("os commits continuam na linha que o TUI desenharia", () => {
+  test("the commits stay on the row the TUI would draw", () => {
     const { g, m, planner } = build()
     const graph = project(g, m, planner.getReport(), planner.getMatrix())
 
-    // `laneOf` tem que concordar com `lanes[].y`, senão o HTML e o TUI mostram
-    // o mesmo commit em linhas diferentes.
+    // `laneOf` must agree with `lanes[].y`, otherwise the HTML and the TUI show
+    // the same commit on different rows.
     graph.lanes.forEach((l, i) => {
       graph.laneOf.forEach((li, commit) => {
         if (li === i) expect(l.y).toBe(i)
       })
     })
 
-    // e nenhum commit pode ficar apontando para uma lane que não existe
+    // and no commit may point at a lane that does not exist
     expect(graph.laneOf.every(i => i >= 0 && i < graph.lanes.length)).toBe(true)
   })
 })
 
-describe("a projeção usa y reindexado, sem tocar no model", () => {
-  test("o HTML numera as lanes em sequência, na ordem do model", () => {
+describe("the projection uses reindexed y, without touching the model", () => {
+  test("the HTML numbers the lanes in sequence, in model order", () => {
     const { g, m, planner } = build()
     const graph = project(g, m, planner.getReport(), planner.getMatrix())
     expect(graph.lanes.map(l => l.y)).toEqual(graph.lanes.map((_, i) => i))
   })
 
-  test("a ordem das lanes no HTML é a ordem vertical do terminal", () => {
+  test("the lane order in the HTML is the terminal's vertical order", () => {
     const { g, m, planner } = build()
     const graph = project(g, m, planner.getReport(), planner.getMatrix())
-    const ordemDoModel = m.lanes.filter(visivel).sort((a, b) => a.y - b.y).map(b => b.name)
-    expect(graph.lanes.map(l => l.name)).toEqual(ordemDoModel)
+    const modelOrder = m.lanes.filter(visible).sort((a, b) => a.y - b.y).map(b => b.name)
+    expect(graph.lanes.map(l => l.name)).toEqual(modelOrder)
   })
 })

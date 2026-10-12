@@ -1,18 +1,18 @@
-// O export HTML: um arquivo só, sem CDN, sem JS externo, sem build.
+// The HTML export: a single file, no CDN, no external JS, no build.
 //
-// Recebe o model e escreve a **projeção** — a forma serializada que o template consome
-// via `window.__GRAPH__`. É o contrato entre os dois renderizadores.
+// Takes the model and writes the **graph data** — the serialized shape the template
+// consumes via `window.__GRAPH__`. It is the contract between the two renderers.
 
 import { readFileSync, writeFileSync } from "node:fs"
 import { resolve } from "node:path"
 import type { Git } from "../git/index.ts"
-import { visivel, type Lane, type Model } from "../model/index.ts"
+import { visible, type Lane, type Model } from "../model/index.ts"
 import type { Matrix, Report } from "../merge/index.ts"
 import { TPL_DAG } from "./lib/template.ts"
 
 export { TPL_DAG }
 
-/** O que vai dentro do HTML. É o contrato — mudar aqui é quebrar todo export antigo. */
+/** What goes inside the HTML. It is the contract — changing here breaks every old export. */
 export type Graph = {
   repo: string
   commits: Model["cs"]
@@ -26,35 +26,34 @@ export type Graph = {
     x1: number
     y: number
     listLen: number
-    ghost: 0 | 1
+    branchless: 0 | 1
     merged: 0 | 1
   }[]
   laneOf: number[]
-  /** Troncos resolvidos pelo model e de onde vieram. O template usa em vez de repetir a lista. */
-  troncos: string[]
-  troncosSource: string
+  /** Default branches resolved by the model and where they came from. The template uses this instead of repeating the list. */
+  defaultBranches: string[]
+  defaultBranchSource: string
   report: Report & { matrix: Matrix | null }
 }
 
 /**
- * Monta a projeção.
+ * Builds the graph data.
  *
- * No HTML cada lane é uma linha: o `y` do model (espaçamento de terminal, `RH = 3`) é
- * reindexado para 0..n-1 aqui, preservando a ordem. A ordem vem do model; só a
- * densidade muda.
+ * In the HTML each lane is a row: the model's `y` (terminal spacing, `RH = 3`) is
+ * reindexed to 0..n-1 here, preserving order. The order comes from the model; only the
+ * density changes.
  *
- * `lanesEmOrdem` devolve pares [lane, y-no-html] em vez de escrever `lane.y` — o
- * renderizador do terminal tem as mesmas lanes vivas e precisa que continuem onde
- * estavam.
+ * `lanesInOrder` returns [lane, y-in-html] pairs instead of writing `lane.y` — the
+ * terminal renderer holds the same live lanes and needs them to stay where they were.
  */
 export function project(g: Git, m: Model, report: Report, matrix: Matrix | null): Graph {
   const refs = g.run(["for-each-ref", "--format=%(refname)\t%(objectname)", "refs/heads", "refs/remotes", "refs/tags"]).out
     .split("\n").filter(Boolean)
     .map(l => { const [name, hash] = l.split("\t"); return { name, hash } })
 
-  const vis = m.lanes.filter(visivel).sort((a, b) => a.y - b.y)
-  const lanesEmOrdem = vis.map((b, i): [Lane, number] => [b, i])
-  const yNoHtml = new Map(lanesEmOrdem)
+  const vis = m.lanes.filter(visible).sort((a, b) => a.y - b.y)
+  const lanesInOrder = vis.map((b, i): [Lane, number] => [b, i])
+  const yInHtml = new Map(lanesInOrder)
   const mergedRefs = new Set(report.branches.filter(b => b.merged).map(b => b.name))
 
   return {
@@ -62,7 +61,7 @@ export function project(g: Git, m: Model, report: Report, matrix: Matrix | null)
     commits: m.cs,
     refs,
     head: m.headHash,
-    lanes: lanesEmOrdem.map(([b, y]) => ({
+    lanes: lanesInOrder.map(([b, y]) => ({
       name: b.name,
       label: b.label,
       cat: b.cat,
@@ -70,27 +69,27 @@ export function project(g: Git, m: Model, report: Report, matrix: Matrix | null)
       x1: b.x1,
       y,
       listLen: b.list.length,
-      ghost: (b.name ? 0 : 1) as 0 | 1,
+      branchless: (b.name ? 0 : 1) as 0 | 1,
       merged: (mergedRefs.has(b.name) ? 1 : 0) as 0 | 1,
     })),
-    laneOf: m.cs.map(c => yNoHtml.get(m.owner.get(c.hash)!) ?? -1),
-    troncos: m.troncos,
-    troncosSource: m.troncosSource,
+    laneOf: m.cs.map(c => yInHtml.get(m.owner.get(c.hash)!) ?? -1),
+    defaultBranches: m.defaultBranches,
+    defaultBranchSource: m.defaultBranchSource,
     report: { ...report, matrix },
   }
 }
 
 /**
- * Escreve o HTML em `file`.
+ * Writes the HTML to `file`.
  *
- * `template` troca o embutido por um arquivo próprio — cai no embutido se o path não
- * existir, em vez de falhar.
+ * `template` swaps the built-in for a file of its own — falls back to the built-in if the
+ * path does not exist, instead of failing.
  */
 export function exportHtml(g: Git, m: Model, report: Report, matrix: Matrix | null, file: string, template?: string): string {
   let tpl = TPL_DAG
   if (template) {
     try { tpl = readFileSync(resolve(template), "utf8") }
-    catch { console.error("template nao encontrado, usando o embutido:", template) }
+    catch { console.error("template not found, falling back to built-in:", template) }
   }
   const data = JSON.stringify(project(g, m, report, matrix)).replace(/</g, "\\u003c")
   const out = resolve(file)

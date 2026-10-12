@@ -1,133 +1,133 @@
 #!/usr/bin/env bun
-// Valida o repo contra os tetos declarados no CONSTRAINTS.md.
+// Validates the repo against the ceilings declared in CONSTRAINTS.md.
 //
-// Lê os tetos do próprio CONSTRAINTS.md — não os duplica aqui. Um teto escrito em dois
-// lugares diverge; quando diverge, ninguém sabe qual vale.
+// Reads the ceilings from CONSTRAINTS.md itself — doesn't duplicate them here. A ceiling
+// written in two places drifts; when it drifts, nobody knows which one holds.
 //
-// Sai com 1 se estourar, para entrar no `check`.
+// Exits with 1 if it goes over, so it can join `check`.
 
 import { readFileSync, readdirSync, statSync } from "node:fs"
 import { join, relative } from "node:path"
 
-const RAIZ = new URL("..", import.meta.url).pathname
+const ROOT = new URL("..", import.meta.url).pathname
 
 /**
- * Tetos lidos do CONSTRAINTS.md — não duplicados aqui.
+ * Ceilings read from CONSTRAINTS.md — not duplicated here.
  *
- * Procura o par chave/valor no arquivo inteiro em vez de num bloco ```yaml específico:
- * o arquivo tem dois blocos yaml, e o que tem os tetos não é o primeiro. Se o formato
- * mudar, o erro diz qual chave faltou em vez de devolver 0 em silêncio.
+ * Looks for the key/value pair in the whole file instead of a specific ```yaml block:
+ * the file has two yaml blocks, and the one with the ceilings isn't the first. If the
+ * format changes, the error names the missing key instead of silently returning 0.
  */
-function tetos(): { loc: number; deps: number; fn: number } {
-  const md = readFileSync(join(RAIZ, "CONSTRAINTS.md"), "utf8")
-  const pega = (k: string) => {
+function ceilings(): { loc: number; deps: number; fn: number } {
+  const md = readFileSync(join(ROOT, "CONSTRAINTS.md"), "utf8")
+  const readKey = (k: string) => {
     const v = Number(md.match(new RegExp(`^\\s*${k}:\\s*(\\d+)`, "m"))?.[1] ?? 0)
-    if (!v) throw new Error(`não achei ${k}: <número> no CONSTRAINTS.md`)
+    if (!v) throw new Error(`didn't find ${k}: <number> in CONSTRAINTS.md`)
     return v
   }
-  return { loc: pega("max_lines_of_code"), deps: pega("max_dependencies_direct"), fn: pega("max_lines_per_function") }
+  return { loc: readKey("max_lines_of_code"), deps: readKey("max_dependencies_direct"), fn: readKey("max_lines_per_function") }
 }
 
 /**
- * Maior função por número de linhas, e onde.
+ * Longest function by line count, and where.
  *
- * Heurística por profundidade de indentação: conta linhas até a próxima linha no mesmo
- * ou menor nível que abre a função. Custa pouco e erra para o lado de reportar demais —
- * um falso positivo é uma olhada, um falso negativo é uma função ilegível passando.
+ * Indentation-depth heuristic: counts lines up to the next line at the same or lower
+ * level that opens the function. Cheap and errs on the side of over-reporting — a false
+ * positive is a glance, a false negative is an unreadable function slipping through.
  *
- * Não pega arrow function de uma linha nem callback aninhado; para isso seria um parser.
+ * Doesn't catch one-line arrow functions or nested callbacks; that would take a parser.
  */
-function maioresFuncoes(arq: string, fonte: string, min: number): { arq: string; linha: number; n: number; nome: string }[] {
-  const l = fonte.split("\n")
-  const out: { arq: string; linha: number; n: number; nome: string }[] = []
+function longestFunctions(file: string, source: string, min: number): { file: string; line: number; n: number; name: string }[] {
+  const l = source.split("\n")
+  const out: { file: string; line: number; n: number; name: string }[] = []
   for (let i = 0; i < l.length; i++) {
-    const abre = l[i].match(/^(\s*)(?:export\s+)?(?:async\s+)?(?:function\s+(\w+)|(?:const|let)\s+(\w+)\s*(?::[^=]+)?=\s*(?:async\s*)?\()/)
-    if (!abre) continue
-    const base = abre[1].length
-    const nome = abre[2] ?? abre[3] ?? "?"
-    let fim = i + 1
+    const opened = l[i].match(/^(\s*)(?:export\s+)?(?:async\s+)?(?:function\s+(\w+)|(?:const|let)\s+(\w+)\s*(?::[^=]+)?=\s*(?:async\s*)?\()/)
+    if (!opened) continue
+    const base = opened[1].length
+    const name = opened[2] ?? opened[3] ?? "?"
+    let end = i + 1
     for (let j = i + 1; j < l.length; j++) {
       if (!l[j].trim()) continue
-      if (l[j].match(/^(\s*)/)![1].length <= base) { fim = j; break }
+      if (l[j].match(/^(\s*)/)![1].length <= base) { end = j; break }
     }
-    const n = fim - i
-    if (n >= min) out.push({ arq, linha: i + 1, n, nome })
+    const n = end - i
+    if (n >= min) out.push({ file, line: i + 1, n, name })
   }
   return out
 }
 
-/** Todo `.ts` versionado do projeto, exceto o próprio script. */
-function fontes(dir: string, acc: string[] = []): string[] {
+/** Every versioned `.ts` in the project, except the script itself. */
+function sources(dir: string, acc: string[] = []): string[] {
   for (const e of readdirSync(dir)) {
     if (e === "node_modules" || e === ".git" || e === "dist" || e === "out") continue
     const p = join(dir, e)
-    if (statSync(p).isDirectory()) fontes(p, acc)
+    if (statSync(p).isDirectory()) sources(p, acc)
     else if (e.endsWith(".ts")) acc.push(p)
   }
   return acc
 }
 
-/** Teste não vai para o binário. Contá-lo no teto puniria quem escreve verificação. */
-const ehTeste = (f: string) => f.includes("/tests/")
+/** Tests don't go into the binary. Counting them in the ceiling would punish whoever writes verification. */
+const isTest = (f: string) => f.includes("/tests/")
 
-const { loc: MAX_LOC, deps: MAX_DEPS, fn: MAX_FN } = tetos()
-const pkg = JSON.parse(readFileSync(join(RAIZ, "package.json"), "utf8"))
-const eu = relative(RAIZ, new URL(import.meta.url).pathname)
+const { loc: MAX_LOC, deps: MAX_DEPS, fn: MAX_FN } = ceilings()
+const pkg = JSON.parse(readFileSync(join(ROOT, "package.json"), "utf8"))
+const self = relative(ROOT, new URL(import.meta.url).pathname)
 
-const arquivos = fontes(RAIZ).filter(f => relative(RAIZ, f) !== eu)
-const envio = arquivos.filter(f => !ehTeste(relative(RAIZ, f)))
-const testes = arquivos.filter(f => ehTeste(relative(RAIZ, f)))
+const files = sources(ROOT).filter(f => relative(ROOT, f) !== self)
+const shipped = files.filter(f => !isTest(relative(ROOT, f)))
+const tests = files.filter(f => isTest(relative(ROOT, f)))
 
-/** LOC medido sobre o que vai para o binário. Testes são reportados à parte. */
-const linhas = envio.map(f => [relative(RAIZ, f), readFileSync(f, "utf8").split("\n").length - 1] as const)
-const linhasTeste = testes.map(f => [relative(RAIZ, f), readFileSync(f, "utf8").split("\n").length - 1] as const)
-const total = linhas.reduce((s, [, n]) => s + n, 0)
-const totalTeste = linhasTeste.reduce((s, [, n]) => s + n, 0)
+/** LOC measured over what goes into the binary. Tests are reported separately. */
+const lines = shipped.map(f => [relative(ROOT, f), readFileSync(f, "utf8").split("\n").length - 1] as const)
+const testLines = tests.map(f => [relative(ROOT, f), readFileSync(f, "utf8").split("\n").length - 1] as const)
+const total = lines.reduce((s, [, n]) => s + n, 0)
+const totalTests = testLines.reduce((s, [, n]) => s + n, 0)
 
 const nDeps = Object.keys(pkg.dependencies ?? {}).length
-const fnsLongas = envio.flatMap(f => maioresFuncoes(relative(RAIZ, f), readFileSync(f, "utf8"), MAX_FN))
+const longFunctions = shipped.flatMap(f => longestFunctions(relative(ROOT, f), readFileSync(f, "utf8"), MAX_FN))
   .sort((a, b) => b.n - a.n)
 
 const pct = (n: number, max: number) => Math.round((n / max) * 100)
-const barra = (n: number, max: number) => {
-  const cheio = Math.min(20, Math.round((n / max) * 20))
-  return "█".repeat(cheio) + "░".repeat(20 - cheio)
+const bar = (n: number, max: number) => {
+  const filled = Math.min(20, Math.round((n / max) * 20))
+  return "█".repeat(filled) + "░".repeat(20 - filled)
 }
 
-console.log(`\n  LOC ${total} / ${MAX_LOC}  ${barra(total, MAX_LOC)} ${pct(total, MAX_LOC)}%   (binário; testes à parte: ${totalTeste})`)
-console.log(`  deps runtime ${nDeps} / ${MAX_DEPS}`)
-console.log(`  funções > ${MAX_FN} linhas  ${fnsLongas.length}  ${barra(fnsLongas.length, 5)}`)
+console.log(`\n  LOC ${total} / ${MAX_LOC}  ${bar(total, MAX_LOC)} ${pct(total, MAX_LOC)}%   (binary; tests separately: ${totalTests})`)
+console.log(`  runtime deps ${nDeps} / ${MAX_DEPS}`)
+console.log(`  functions > ${MAX_FN} lines  ${longFunctions.length}  ${bar(longFunctions.length, 5)}`)
 
-const maiores = [...linhas].sort((a, b) => b[1] - a[1]).slice(0, 6)
-console.log("\n  maiores arquivos:")
-for (const [f, n] of maiores) {
+const largest = [...lines].sort((a, b) => b[1] - a[1]).slice(0, 6)
+console.log("\n  largest files:")
+for (const [f, n] of largest) {
   console.log(`    ${String(n).padStart(5)}  ${f}`)
 }
 
-if (fnsLongas.length) {
-  console.log(`\n  funções longas:`)
-  for (const f of fnsLongas.slice(0, 5)) {
-    console.log(`    ${String(f.n).padStart(4)}  ${f.arq}:${f.linha}  ${f.nome}()`)
+if (longFunctions.length) {
+  console.log(`\n  long functions:`)
+  for (const f of longFunctions.slice(0, 5)) {
+    console.log(`    ${String(f.n).padStart(4)}  ${f.file}:${f.line}  ${f.name}()`)
   }
 }
 
-let falhou = false
+let failed = false
 
 if (total > MAX_LOC) {
-  console.log(`\n  ✗ ${total - MAX_LOC} linhas acima do teto. Corte, ou justifique no corpo do PR e`)
-  console.log(`    suba o teto no CONSTRAINTS.md — não deixe o número e o código divergirem.`)
-  falhou = true
+  console.log(`\n  ✗ ${total - MAX_LOC} lines above the ceiling. Cut, or justify it in the PR body and`)
+  console.log(`    raise the ceiling in CONSTRAINTS.md — don't let the number and the code diverge.`)
+  failed = true
 }
 if (nDeps > MAX_DEPS) {
-  console.log(`\n  ✗ ${nDeps - MAX_DEPS} dependências runtime acima do teto.`)
-  falhou = true
+  console.log(`\n  ✗ ${nDeps - MAX_DEPS} runtime dependencies above the ceiling.`)
+  failed = true
 }
-if (fnsLongas.length) {
-  console.log(`\n  ✗ ${fnsLongas.length} função(ões) acima de ${MAX_FN} linhas. Esta é a que dói:`)
-  console.log(`    ${fnsLongas[0].arq}:${fnsLongas[0].linha} ${fnsLongas[0].nome}() — ${fnsLongas[0].n} linhas.`)
-  console.log(`    Quebre em funções nomeadas. O nome é o que torna o código legível.`)
-  falhou = true
+if (longFunctions.length) {
+  console.log(`\n  ✗ ${longFunctions.length} function(s) above ${MAX_FN} lines. This is the one that hurts:`)
+  console.log(`    ${longFunctions[0].file}:${longFunctions[0].line} ${longFunctions[0].name}() — ${longFunctions[0].n} lines.`)
+  console.log(`    Break it into named functions. The name is what makes code readable.`)
+  failed = true
 }
 
-console.log(falhou ? "\n  ✗ fora dos constraints\n" : "\n  ✓ dentro dos constraints\n")
-process.exit(falhou ? 1 : 0)
+console.log(failed ? "\n  ✗ outside the constraints\n" : "\n  ✓ within the constraints\n")
+process.exit(failed ? 1 : 0)

@@ -1,25 +1,25 @@
-// O segundo adapter da seam `git`.
+// The second adapter of the `git` seam.
 //
-// Segundo entry point do package (ficar na raiz é o que o torna importável), para os
-// testes falarem com a mesma interface de `createGit` sem spawnar um repositório.
+// The package's second entry point (being at the root is what makes it importable), so that
+// tests can talk to the same interface as `createGit` without spawning a repository.
 //
-// Não é mock: cada resposta é o stdout real que o git devolveria.
+// It is not a mock: every response is the real stdout that git would return.
 
 import type { Git, GitResult } from "./index.ts"
 
 export type FakeGit = Git & {
-  /** Toda chamada que chegou, na ordem. Serve para afirmar o que foi — e o que não foi — consultado. */
+  /** Every call that arrived, in order. Used to assert what was — and what was not — consulted. */
   readonly calls: string[]
-  /** Sobrescreve uma resposta depois de criado. */
+  /** Overwrites a response after creation. */
   set: (key: string, res: Partial<GitResult>) => FakeGit
 }
 
-/** Separadores do `--pretty=format:` que o model consome. */
+/** Separators of the `--pretty=format:` that the model consumes. */
 const US = "\x1f", RS = "\x1e"
 
 /**
- * @param responses  chave = argumentos unidos por espaço. Aceita prefixo: a entrada mais
- *                   longa que casar vence. `""` é o fallback (padrão: stdout vazio, código 0).
+ * @param responses  key = arguments joined by space. Accepts a prefix: the longest
+ *                   entry that matches wins. `""` is the fallback (default: empty stdout, code 0).
  */
 export function createFakeGit(responses: Record<string, Partial<GitResult>> = {}): FakeGit {
   const calls: string[] = []
@@ -45,14 +45,14 @@ export function createFakeGit(responses: Record<string, Partial<GitResult>> = {}
   const run = (a: string[], _env?: Record<string, string>): GitResult => {
     const key = a.join(" ")
     calls.push(key)
-    // o app usa isto para validar o repo antes de construir o model
+    // the app uses this to validate the repo before building the model
     if (key === "rev-parse --is-inside-work-tree") return { out: "true\n", code: 0 }
     return lookup(key)
   }
 
   const git = (...a: string[]): string => {
     const r = run(a)
-    if (r.code) throw new Error(`git ${a[0]} falhou`)
+    if (r.code) throw new Error(`git ${a[0]} failed`)
     return r.out
   }
 
@@ -66,7 +66,7 @@ export function createFakeGit(responses: Record<string, Partial<GitResult>> = {}
   return self
 }
 
-/** `git log --all` no formato que o model consome, montado a partir de commits legíveis. */
+/** `git log --all` in the format the model consumes, assembled from readable commits. */
 export function logOutput(commits: {
   hash: string
   parents?: string[]
@@ -88,5 +88,5 @@ export function logOutput(commits: {
   ).join("")
 }
 
-/** `rev-list --left-right --count a...b` devolve `behind ahead`. */
+/** `rev-list --left-right --count a...b` returns `behind ahead`. */
 export const leftRight = (behind: number, ahead: number) => `${behind}\t${ahead}\n`

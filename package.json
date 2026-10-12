@@ -1,7 +1,7 @@
 {
   "name": "gitview",
   "version": "1.2.0",
-  "description": "Grafo do git por lanes no terminal, com export HTML de um arquivo so",
+  "description": "Git graph by lanes in the terminal, with single-file HTML export",
   "author": "Gabriel Kleemann Duarte <gabrielkleemannd@gmail.com>",
   "license": "MIT",
   "repository": {

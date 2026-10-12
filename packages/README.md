@@ -1,74 +1,74 @@
 # Packages
 
-Cada diretório aqui é um **módulo profundo**: muito comportamento atrás de uma interface
-pequena. A superfície pública de um package são os **entry points** — os arquivos na raiz do
-package. Tudo em subpasta é privado.
+Each directory here is a **deep module**: a lot of behaviour behind a small interface. A
+package's public surface is its **entry points** — the files at the package root. Everything
+in a subfolder is private.
 
 ```
 packages/
   git/            index.ts     ← entry point: createGit(repo) -> { run, git }
-                  fake.ts      ← entry point: o adapter de teste
-                  lib/exec.ts  ← privado
-  model/          index.ts     ← entry point: buildModel(git), catOf, corLane, mix, DX, RH
-                  lib/color.ts ← privado
+                  fake.ts      ← entry point: the test adapter
+                  lib/exec.ts  ← private
+  model/          index.ts     ← entry point: buildModel(git), catOf, laneColor, mix, DX, RH
+                  lib/color.ts ← private
   merge/          index.ts     ← entry point: createMergePlanner(git, model, flags)
   export/         index.ts     ← entry point: exportHtml(...), project(...)
-                  lib/template.ts ← privado (o HTML embutido)
+                  lib/template.ts ← private (the embedded HTML)
   tui/            index.ts     ← entry point: startTui({ g, m, planner, onExport })
 ```
 
-## A regra
+## The rule
 
-**Importe só pelos entry points de um package** — os arquivos na raiz dele. `lib/` é
-implementação e não se importa de fora, nunca. A regra é por profundidade, não por nome de
-pasta: qualquer subpasta é privada, então criar uma pasta nova não exige mexer na config.
+**Import only through a package's entry points** — the files at its root. `lib/` is
+implementation and is never imported from outside. The rule is by depth, not by folder name:
+any subfolder is private, so creating a new folder does not require touching the config.
 
-Por que `packages/git/fake.ts` está na raiz e não em `lib/`: ele é o **segundo adapter** da
-seam do git. Interface com um adapter só é indireção; com dois é seam de verdade — e o
-adapter de teste precisa ser alcançável de `packages/*/tests/`, que por regra não enxerga
-subpastas de ninguém. Por isso ele é entry point.
+Why `packages/git/fake.ts` is at the root and not in `lib/`: it is the **second adapter** of
+the git seam. An interface with a single adapter is indirection; with two it is a real seam —
+and the test adapter must be reachable from `packages/*/tests/`, which by rule cannot see
+anyone's subfolders. That is why it is an entry point.
 
-## Sem barrel
+## No barrel
 
-Um package **não** deve ter um `index.ts` que reexporta a subárvore inteira. Exponha vários
-entry points pequenos (`index.ts`, `fake.ts`, `client.ts`) em vez de um `index.ts` gigante.
-Barrel esconde o que está exposto e faz todo mundo importar pelo mesmo caminho, o que
-destrói a razão de a interface ser pequena.
+A package must **not** have an `index.ts` that re-exports the whole subtree. Expose several
+small entry points (`index.ts`, `fake.ts`, `client.ts`) instead of one giant `index.ts`. A
+barrel hides what is exposed and makes everyone import through the same path, which destroys
+the reason for the interface to be small.
 
-## Rodando
+## Running
 
 ```bash
-bun run lint:boundaries   # dependency-cruiser, 5 regras, todas erro
-bun run check            # typecheck + lint:boundaries + testes
+bun run lint:boundaries   # dependency-cruiser, 5 rules, all errors
+bun run check            # typecheck + lint:boundaries + tests
 ```
 
-As cinco regras que o `depcruise` impõe:
+The five rules that `depcruise` enforces:
 
-| regra | o que proíbe |
+| rule | what it forbids |
 | --- | --- |
-| `entrypoint-boundary-from-app` | app/raiz alcançando `lib/` de qualquer package |
-| `entrypoint-boundary-across-packages` | um package alcançando `lib/` de outro |
-| `tests-through-entrypoints` | um teste alcançando `lib/`, nem do próprio package |
-| `tests-folder-is-private` | algo fora de `tests/` importando fixture |
-| `no-circular` | ciclo de dependência |
+| `entrypoint-boundary-from-app` | app/root reaching any package's `lib/` |
+| `entrypoint-boundary-across-packages` | one package reaching another's `lib/` |
+| `tests-through-entrypoints` | a test reaching `lib/`, not even its own package's |
+| `tests-folder-is-private` | something outside `tests/` importing a fixture |
+| `no-circular` | dependency cycle |
 
-Alterar `.dependency-cruiser.cjs` é raro: as regras são por profundidade, então quase tudo
-novo entra sem tocar na config. O único campo que se ajusta é `PACKAGES_ROOT`.
+Changing `.dependency-cruiser.cjs` is rare: the rules are by depth, so almost anything new
+fits without touching the config. The only field that gets adjusted is `PACKAGES_ROOT`.
 
-## Onde as coisas moram
+## Where things live
 
-`gitview.ts` na raiz é o **composition root**: parseia argumentos e escolhe o que rodar.
-Ele é o único que faz I/O de processo e o único com side effect de boot, guardado por
-`import.meta.main`. Toda a lógica está nos packages, alcançável por `import`.
+`gitview.ts` at the root is the **composition root**: it parses arguments and chooses what to
+run. It is the only one that does process I/O and the only one with a boot side effect, guarded
+by `import.meta.main`. All the logic lives in the packages, reachable through `import`.
 
-Os dois renderizadores (`tui`, `export`) **não** se conhecem. Compartilham o `model`, e
-só ele. Zoom, filtro, eixo X e deep-link são do HTML — o glossário registra a assimetria.
-Se um dia você precisar que o TUI ganhe um recurso do HTML, o lugar disso é o `model`, não
-uma importação entre os dois.
+The two renderers (`tui`, `export`) do **not** know each other. They share the `model`, and
+only it. Zoom, filtering, X axis and deep-link belong to the HTML — the glossary records the
+asymmetry. If one day you need the TUI to gain a feature from the HTML, the place for it is the
+`model`, not an import between the two.
 
-## O espelho dentro do template
+## The mirror inside the template
 
-`export/lib/template.ts` é JS e CSS vivos dentro de uma string, e ele **duplica** duas
-coisas do TypeScript: as cores por categoria (`COL`) e a lista de troncos (`TRONCO`).
-Não há como o TypeScript verificar isso. Se mudar a cor de uma categoria ou a lista de
-troncos, mude nos dois lados, e deixe um comentário de volta no outro arquivo.
+`export/lib/template.ts` is live JS and CSS inside a string, and it **duplicates** two things
+from the TypeScript: the colours per category (`COL`) and the list of default branches
+(`TRUNK`). There is no way for TypeScript to verify this. If you change a category's colour or
+the list of default branches, change both sides, and leave a comment back in the other file.

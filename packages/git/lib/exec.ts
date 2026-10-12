@@ -1,12 +1,11 @@
 import { execFileSync } from "node:child_process"
 
 /**
- * Envolvimento de `execFileSync` em modo leitura.
+ * Wrapper around `execFileSync` in read mode.
  *
- * stdout e stderr são piped (nunca herdados) para que nada escape para o terminal, e
- * `stdio[0]` é `ignore` porque nenhum comando git do gitview lê stdin. O limite de
- * buffer é generoso de propósito: `git log --all` num repositório grande passa fácil
- * dos 10 MB padrão do Node.
+ * stdout and stderr are piped (never inherited) so that nothing escapes to the terminal, and
+ * `stdio[0]` is `ignore` because no gitview git command reads stdin. The buffer limit is
+ * generous on purpose: `git log --all` in a large repository easily passes Node's 10 MB default.
  */
 export function execGit(repo: string, a: string[], env?: Record<string, string>): { out: string; code: number } {
   try {
@@ -18,10 +17,10 @@ export function execGit(repo: string, a: string[], env?: Record<string, string>)
     }) as string
     return { out, code: 0 }
   } catch (e) {
-    // `merge-tree --write-tree` sinaliza conflito pelo código 1, com os arquivos na
-    // stdout. Isso é dado, não erro — por isso o código volta em vez de estourar.
-    // Node lança `ExecFileSyncException` com `stdout` e `status`; se vier outra coisa,
-    // o shape ainda assim existe, só sem os dois campos.
+    // `merge-tree --write-tree` signals a conflict through code 1, with the files on
+    // stdout. That is data, not an error — hence the code comes back instead of throwing.
+    // Node throws `ExecFileSyncException` with `stdout` and `status`; if something else comes,
+    // the shape still exists, just without those two fields.
     const r = e as { stdout?: unknown; status?: unknown }
     return { out: typeof r.stdout === "string" ? r.stdout : "", code: typeof r.status === "number" ? r.status : 1 }
   }

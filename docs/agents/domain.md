@@ -51,7 +51,7 @@ If the concept you need isn't in the glossary yet, that's a signal: either you'r
 
 `GLOSSARY.md` exists and is the authority. When `/domain-modeling` first runs against it, note
 that the README is **not** a reliable source for vocabulary here — it already overstated one
-term ("o mesmo renderizador do terminal"), which is why the glossary exists as a separate source
+term ("the same terminal renderer"), which is why the glossary exists as a separate source
 of truth. When the README and the glossary disagree, the glossary wins; if the glossary turns
 out to be wrong, fix it rather than drifting.
 
@@ -59,7 +59,7 @@ Two corrections the first read already earned, worth not re-deriving:
 
 - The HTML and the terminal are **not** one renderer. Two independent implementations sharing a
   model. Zoom, filtering, the X axis and `#lane=` deep-links are HTML-only.
-- `inativa` is the canonical term for a merged or `ahead 0` lane, not "inactive branch".
+- `inactive` is the canonical term for a merged or `ahead 0` lane, not "inactive branch".
 
 ## Flag ADR conflicts
 

@@ -1,34 +1,34 @@
 #!/usr/bin/env bun
-// gitview — grafo git por lanes no terminal (OpenTUI), e export HTML de um arquivo só.
+// gitview — git graph by lanes in the terminal (OpenTUI), and single-file HTML export.
 //
-// App de composition root: só parseia argumentos e escolhe o que rodar. Toda a lógica
-// está nos packages, alcançáveis por import — este arquivo é o único que faz I/O de
-// processo e é o único com side effect de boot.
+// Composition root app: it only parses arguments and picks what to run. All the logic
+// lives in the packages, reachable by import — this file is the only one that does
+// process I/O and the only one with a boot side effect.
 //
-// uso: bun gitview.ts [caminho-do-repo] [opcoes]
+// usage: bun gitview.ts [repo-path] [options]
 
 import { existsSync } from "node:fs"
 import { basename, resolve } from "node:path"
 import { createGit } from "./packages/git/index.ts"
-import { visivel, buildModel, describeTrunks, type Model } from "./packages/model/index.ts"
+import { visible, buildModel, describeDefaultBranches, type Model } from "./packages/model/index.ts"
 import { createMergePlanner } from "./packages/merge/index.ts"
 import { exportHtml } from "./packages/export/index.ts"
 import { startTui } from "./packages/tui/index.ts"
 
-const VERSAO = "1.2"
+const VERSION = "1.2"
 
-/** Flags que consomem o argumento seguinte. O valor não pode ser lido como repo. */
-const VALUED = new Set(["--export", "--template", "--main", "--dev", "--trunk"])
+/** Flags that consume the next argument. The value can't be read as a repo. */
+const VALUED = new Set(["--export", "--template", "--main", "--dev", "--default-branch"])
 
 const args = process.argv.slice(2)
 const flag = (n: string) => { const i = args.indexOf(n); return i >= 0 ? args[i + 1] : undefined }
 
 /**
- * Primeiro argumento que não é flag nem valor de flag.
+ * First argument that is neither a flag nor a flag value.
  *
- * Antes isto era `args.find((a, i) => !a.startsWith("--") && !(i > 0 && args[i-1].startsWith("--")))`,
- * que descartava silenciosamente um repo informado *depois* de qualquer flag:
- * `gitview --dump ~/outro` analisava o diretório atual. Ver issue aberta.
+ * This used to be `args.find((a, i) => !a.startsWith("--") && !(i > 0 && args[i-1].startsWith("--")))`,
+ * which silently discarded a repo given *after* any flag: `gitview --dump ~/other`
+ * analyzed the current directory. See open issue.
  */
 function repoArg(): string | undefined {
   for (let i = 0; i < args.length; i++) {
@@ -42,64 +42,64 @@ function repoArg(): string | undefined {
 
 function main() {
   if (args.includes("--help") || args.includes("-h")) {
-    console.log(`gitview ${VERSAO} — grafo git por lanes no terminal (OpenTUI)
+    console.log(`gitview ${VERSION} — git graph by lanes in the terminal (OpenTUI)
 
-uso: gitview [repo] [opcoes]
+usage: gitview [repo] [options]
 
-opcoes:
-  --export <file.html>    exporta grafico HTML auto-contido (DAG + refs + plano + matriz)
-  --template <file.html>  usa template proprio; se nao existir, cai no embutido
-  --main <branch>         branch principal do plano de merge (default: autodetect)
-  --dev <branch>          branch de desenvolvimento (default: autodetect)
-  --trunk <a,b>           branches fixadas no topo do eixo Y (default: autodetect)
-  --dump                  lista o modelo de lanes e sai (debug)
-  --version               versao
-  -h, --help              esta ajuda
+options:
+  --export <file.html>      export self-contained HTML graph (DAG + refs + plan + matrix)
+  --template <file.html>    use your own template; falls back to built-in if missing
+  --main <branch>           main branch of the merge plan (default: autodetect)
+  --dev <branch>            development branch (default: autodetect)
+  --default-branch <a,b>    branches pinned to the top of the Y axis (default: autodetect)
+  --dump                    list the lane model and exit (debug)
+  --version                 version
+  -h, --help                this help
 
-teclas no TUI:
-  clique / setas   selecionar commit      2x clique / Enter   ancestrais
-  p                plano de merge          e                   exportar HTML
-  q                sair
+keys in the TUI:
+  click / arrows   select commit       double-click / Enter   ancestors
+  p                merge plan          e                      export HTML
+  q                quit
 
-exemplos:
+examples:
   gitview .
-  gitview ~/Projects/meu-repo --export grafo.html
-  gitview ~/Projects/meu-repo --dump`)
+  gitview ~/Projects/my-repo --export graph.html
+  gitview ~/Projects/my-repo --dump`)
     return
   }
-  if (args.includes("--version")) { console.log(`gitview ${VERSAO}`); return }
+  if (args.includes("--version")) { console.log(`gitview ${VERSION}`); return }
 
   const repo = repoArg() ?? process.cwd()
-  if (!existsSync(resolve(repo))) { console.error("caminho nao encontrado:", repo); process.exit(1) }
+  if (!existsSync(resolve(repo))) { console.error("path not found:", repo); process.exit(1) }
 
   const g = createGit(resolve(repo))
-  if (g.run(["rev-parse", "--is-inside-work-tree"]).code) { console.error("nao e repositorio git:", g.repo); process.exit(1) }
+  if (g.run(["rev-parse", "--is-inside-work-tree"]).code) { console.error("not a git repository:", g.repo); process.exit(1) }
 
-  const trunkFlag = flag("--trunk")
+  const defaultBranchFlag = flag("--default-branch")
   let m: Model
-  try { m = buildModel(g, { trunk: trunkFlag ? trunkFlag.split(",").map(s => s.trim()).filter(Boolean) : undefined }) }
+  try { m = buildModel(g, { defaultBranches: defaultBranchFlag ? defaultBranchFlag.split(",").map(s => s.trim()).filter(Boolean) : undefined }) }
   catch (e) { console.error(e instanceof Error ? e.message : String(e)); process.exit(1) }
 
   const planner = createMergePlanner(g, m, { main: flag("--main"), dev: flag("--dev") })
 
   if (args.includes("--dump")) {
-    const vis = m.lanes.filter(visivel)
-    console.log(`commits: ${m.N}  lanes: ${vis.length}  refs: ${m.loc.size}  ${describeTrunks({ names: m.troncos, source: m.troncosSource })}`)
-    for (const b of [...vis].sort((a, b) => a.y - b.y)) {
-      console.log(`${String(b.list.length).padStart(4)}${b.tipAt !== undefined ? "*" : " "} ${b.cat.padEnd(8)} ${b.name || "(fantasma)"}`)
+    const visibleLanes = m.lanes.filter(visible)
+    console.log(`commits: ${m.N}  lanes: ${visibleLanes.length}  refs: ${m.loc.size}  ${describeDefaultBranches({ names: m.defaultBranches, source: m.defaultBranchSource })}`)
+    for (const b of [...visibleLanes].sort((a, b) => a.y - b.y)) {
+      console.log(`${String(b.list.length).padStart(4)}${b.tipAt !== undefined ? "*" : " "} ${b.cat.padEnd(8)} ${b.name || "(no branch)"}`)
     }
-    // O dump original tinha um `else if (b.name)` aqui imprimeindo "(invisivel: tip fora
-    // do log)". Era código morto: o filtro de cima já tinha removido essas lanes. Deixado
-    // fora de propósito — ressuscitar isso é feature, não refactor. Ver issue aberta.
+    // The original dump had an `else if (b.name)` here printing "(invisible: tip outside
+    // the log)". It was dead code: the filter above had already removed those lanes. Left
+    // out on purpose — resurrecting it is a feature, not a refactor. See open issue.
     return
   }
 
   const exportTo = flag("--export")
   if (exportTo) {
     try {
-      console.log("exportado:", exportHtml(g, m, planner.getReport(), planner.getMatrix(), exportTo, flag("--template")))
+      console.log("exported:", exportHtml(g, m, planner.getReport(), planner.getMatrix(), exportTo, flag("--template")))
       return
-    } catch (e) { console.error("erro ao exportar:", e instanceof Error ? e.message : String(e)); process.exit(1) }
+    } catch (e) { console.error("export error:", e instanceof Error ? e.message : String(e)); process.exit(1) }
   }
 
   startTui({

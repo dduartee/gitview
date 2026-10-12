@@ -1,11 +1,11 @@
-// O renderizador de terminal.
+// The terminal renderer.
 //
-// Char grid via OpenTUI. Não sabe nada de HTML, e o HTML não sabe nada de terminal: os dois
-// só compartilham o model. Zoom, filtro, eixo X e deep-link são do HTML — o glossário
-// registra a assimetria.
+// Char grid via OpenTUI. It knows nothing about HTML, and HTML knows nothing about the
+// terminal: the two only share the model. Zoom, filtering, X axis and deep-links are HTML
+// only — the glossary records the asymmetry.
 //
-// `GitView` está em `lib/view.ts` e o desenho em `lib/pintor.ts`. Aqui fica só o arranjo:
-// construir, ligar teclado, rodar.
+// `GitView` lives in `lib/view.ts` and the drawing in `lib/pintor.ts`. Only the wiring
+// stays here: build, bind the keyboard, run.
 
 import { createCliRenderer } from "@opentui/core"
 import type { Model } from "../model/index.ts"
@@ -15,7 +15,7 @@ import { GitView } from "./lib/view.ts"
 export type TuiDeps = {
   m: Model
   planner: ReturnType<typeof createMergePlanner>
-  /** Injetado pelo app: mantém o TUI sem dependência do package de export. */
+  /** Injected by the app: keeps the TUI without a dependency on the export package. */
   onExport: () => string
 }
 

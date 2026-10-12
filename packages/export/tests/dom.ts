@@ -1,18 +1,18 @@
-// Shim de DOM suficiente para rodar o script do template fora do navegador.
+// DOM shim, enough to run the template script outside the browser.
 //
-// Existe porque `packages/export/lib/template.ts` é o arquivo mais arriscado do repo — JS
-// sem tipos dentro de uma string, que o `tsc` não vê e que só era exercitado abrindo o
-// HTML na mão. Sem isto, qualquer mudança nele é fé.
+// It exists because `packages/export/lib/template.ts` is the riskiest file in the repo —
+// untyped JS inside a string, invisible to `tsc`, and only ever exercised by opening the
+// HTML by hand. Without this, any change to it runs on faith.
 //
-// O shim é permissivo de propósito: não valida CSS nem layout, e devolve um elemento para
-// qualquer `id` que o HTML declare. O que ele pega é erro de execução — referência a
-// método que não existe, acesso a propriedade de `undefined`, uso de variável fora de
-// escopo (o que `var` permitia e `let` não permite).
+// The shim is permissive on purpose: it validates neither CSS nor layout, and returns an
+// element for any `id` the HTML declares. What it catches is execution errors — a
+// reference to a method that does not exist, access to a property of `undefined`, use of
+// a variable out of scope (which `var` allowed and `let` does not).
 //
-// Está em `tests/` porque é fixture: a regra de fronteira do projeto não deixa outro
-// package importá-lo, e isso é correto — ele não é código de produção.
+// It lives in `tests/` because it is a fixture: the project's boundary rule does not let
+// another package import it, and that is correct — it is not production code.
 
-/** Elemento de brinquedo com o que o template usa. */
+/** Toy element with what the template uses. */
 class El {
   tagName: string
   attrs: Record<string, string> = {}
@@ -26,7 +26,7 @@ class El {
   onclick: (() => void) | null = null
   style: Record<string, string> = {}
   listeners: Record<string, (() => void)[]> = {}
-  /** O template lê isto para calcular a faixa visível; valor fixo evita layout de verdade. */
+  /** The template reads this to compute the visible band; a fixed value avoids real layout. */
   clientWidth = 1200
   clientHeight = 600
 
@@ -54,14 +54,14 @@ class El {
       toggle: (c: string, on?: boolean) => (on === undefined ? (set.has(c) ? set.delete(c) : set.add(c)) : on ? set.add(c) : set.delete(c)),
     }
   }
-  /** Dispara um listener registrado, opcionalmente com um evento. */
-  disparar(tipo: string, ev?: unknown) { for (const f of this.listeners[tipo] ?? []) (f as (e?: unknown) => void)(ev) }
-  /** Dispara o `onclick` atribuído direto, o padrão do template. */
-  clicar() { this.onclick?.() }
-  /** Muda o valor e dispara `change`, exercitando checkboxes. */
-  mudar() { this.disparar("change", { target: this }) }
-  /** Dispara `input` com o evento que o handler de busca espera. */
-  digitar(v: string) { this.value = v; this.disparar("input", { target: this }) }
+  /** Fires a registered listener, optionally with an event. */
+  fire(type: string, ev?: unknown) { for (const f of this.listeners[type] ?? []) (f as (e?: unknown) => void)(ev) }
+  /** Fires the directly-assigned `onclick`, the template's default. */
+  click() { this.onclick?.() }
+  /** Changes the value and fires `change`, exercising checkboxes. */
+  change() { this.fire("change", { target: this }) }
+  /** Fires `input` with the event the search handler expects. */
+  type(v: string) { this.value = v; this.fire("input", { target: this }) }
 }
 
 export type Dom = {
@@ -74,71 +74,71 @@ export type Dom = {
     addEventListener: (t: string, f: () => void) => void
   }
   window: { addEventListener: (t: string, f: () => void) => void; location: { hash: string; reload: () => void }; sessionStorage: { getItem: (k: string) => string | null; setItem: (k: string, v: string) => void }; __GRAPH__?: unknown }
-  /** Todos os elementos que o script tocou, por id. Para inspeção nos testes. */
-  porId: Map<string, El>
-  /** Ids que o script buscou e o HTML não declarava. Deveria ser só os opcionais. */
-  idsFaltando: Set<string>
+  /** All elements the script touched, by id. For inspection in tests. */
+  byId: Map<string, El>
+  /** Ids the script looked up that the HTML did not declare. Should be only the optional ones. */
+  missingIds: Set<string>
   reloads: number
 }
 
 /**
- * Aciona o que o usuário acionaria: abas, interruptores, busca, setas do eixo.
+ * Triggers what the user would trigger: tabs, switches, search, axis arrows.
  *
- * O carregamento só exercita o primeiro render e o `fitTo`. Zoom, filtro, troca de aba e
- * os handlers de checkbox vivem em caminhos que ninguém tocava — e é aí que um `var`→`let`
- * mal feito se esconderia. Devolve quantos handlers disparou.
+ * Loading only exercises the first render and `fitTo`. Zoom, filter, tab switching, and
+ * the checkbox handlers live on paths nobody touched — and that is where a botched
+ * `var`→`let` would hide. Returns how many handlers it fired.
  */
-export function exercitar(dom: Dom): { acionados: number; erros: { onde: string; erro: Error }[] } {
+export function interact(dom: Dom): { fired: number; errors: { where: string; error: Error }[] } {
   let n = 0
-  const erros: { onde: string; erro: Error }[] = []
-  const mexer = (onde: string, f: () => void) => {
-    try { f(); n++ } catch (e) { erros.push({ onde, erro: e instanceof Error ? e : new Error(String(e)) }) }
+  const errors: { where: string; error: Error }[] = []
+  const attempt = (where: string, f: () => void) => {
+    try { f(); n++ } catch (e) { errors.push({ where, error: e instanceof Error ? e : new Error(String(e)) }) }
   }
 
   for (const id of ["t-refs", "t-plan", "t-matrix"]) {
-    const b = dom.porId.get("b-" + id.slice(2))
-    if (b) mexer(`aba ${id}`, () => b.clicar())
+    const b = dom.byId.get("b-" + id.slice(2))
+    if (b) attempt(`tab ${id}`, () => b.click())
   }
-  for (const id of ["tg-ey", "tg-pin", "tg-hash", "tg-ghost", "tg-merge"]) {
-    const e = dom.porId.get(id)
-    if (e) { e.checked = !e.checked; mexer(`interruptor ${id}`, () => e.mudar()) }
+  for (const id of ["tg-ey", "tg-pin", "tg-hash", "tg-branchless", "tg-merge"]) {
+    const e = dom.byId.get(id)
+    if (e) { e.checked = !e.checked; attempt(`switch ${id}`, () => e.change()) }
   }
-  const f = dom.porId.get("f")
-  if (f) for (const q of ["main", "feature", "zzz"]) mexer(`busca ${q}`, () => f.digitar(q))
+  const f = dom.byId.get("f")
+  if (f) for (const q of ["main", "feature", "zzz"]) attempt(`search ${q}`, () => f.type(q))
   for (const id of ["sc-up", "sc-dn"]) {
-    const e = dom.porId.get(id)
-    if (e) mexer(`seta ${id}`, () => e.clicar())
+    const e = dom.byId.get(id)
+    if (e) attempt(`arrow ${id}`, () => e.click())
   }
-  const reset = dom.porId.get("b-reset")
-  if (reset) mexer("reset", () => reset.clicar())
+  const reset = dom.byId.get("b-reset")
+  if (reset) attempt("reset", () => reset.click())
 
-  return { acionados: n, erros }
+  return { fired: n, errors }
 }
 
-/** Ids declarados no HTML do template. O script só pode esperar que estes existam. */
-function idsDoHtml(tpl: string): Set<string> {
+/** Ids declared in the template HTML. The script may only expect these to exist. */
+function idsInHtml(tpl: string): Set<string> {
   const ids = new Set<string>()
   for (const m of tpl.matchAll(/\bid="([^"]+)"/g)) ids.add(m[1])
   return ids
 }
 
-/** Monta o shim. `ids` são os declarados no HTML; os demais devolvem `null`, como no browser. */
-export function criarDom(ids: Set<string>): Dom {
-  const porId = new Map<string, El>()
-  const idsFaltando = new Set<string>()
+/** Builds the shim. `ids` are the ones declared in the HTML; the rest return `null`, as in the browser. */
+export function createDom(ids: Set<string>): Dom {
+  const byId = new Map<string, El>()
+  const missingIds = new Set<string>()
   let reloads = 0
 
-  const pegar = (id: string): El | null => {
-    if (porId.has(id)) return porId.get(id)!
-    if (!ids.has(id)) { idsFaltando.add(id); return null }
+  const getById = (id: string): El | null => {
+    if (byId.has(id)) return byId.get(id)!
+    if (!ids.has(id)) { missingIds.add(id); return null }
     const e = new El("div")
     e.setAttribute("id", id)
-    porId.set(id, e)
+    byId.set(id, e)
     return e
   }
 
   const document = {
-    getElementById: pegar,
+    getElementById: getById,
     createElement: (t: string) => new El(t),
     createElementNS: (_ns: string, t: string) => new El(t),
     createTextNode: (s: string) => { const e = new El("#text"); e.textContent = s; return e },
@@ -153,56 +153,56 @@ export function criarDom(ids: Set<string>): Dom {
   }
 
   return {
-    document, window, porId, idsFaltando,
-    // getter, não valor: o contador vive na closure
+    document, window, byId, missingIds,
+    // getter, not a value: the counter lives in the closure
     get reloads() { return reloads },
   }
 }
 
 /**
- * Roda o script do template com o shim.
+ * Runs the template script against the shim.
  *
- * Devolve sucesso/erro e uma assinatura do que foi construído — a assinatura é o que
- * permite comparar "antes e depois" de uma refatoração sem abrir navegador.
+ * Returns success/error and a signature of what was built — the signature is what lets
+ * you compare "before and after" a refactor without opening a browser.
  */
-export function rodarTemplate(tpl: string, graph: unknown) {
-  const ids = idsDoHtml(tpl)
-  const dom = criarDom(ids)
+export function runTemplate(tpl: string, graph: unknown) {
+  const ids = idsInHtml(tpl)
+  const dom = createDom(ids)
 
-  // O template tem dois <script>: o primeiro só declara `window.__GRAPH__ = null`, e é o
-  // que `exportHtml` substitui. Aqui repassamos a projeção pelo mesmo caminho.
+  // The template has two <script>: the first only declares `window.__GRAPH__ = null`, and
+  // it is the one `exportHtml` replaces. Here we pass the projection through the same path.
   const scripts = [...tpl.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m => m[1])
-  const corpo = scripts.find(s => /^\s*\(function/.test(s))
-  if (!corpo) throw new Error("não achei o script do template")
+  const body = scripts.find(s => /^\s*\(function/.test(s))
+  if (!body) throw new Error("could not find the template script")
 
-  // `window` é o objeto que o script lê; `__GRAPH__` recebe a projeção, como no browser.
+  // `window` is the object the script reads; `__GRAPH__` receives the projection, as in the browser.
   dom.window.__GRAPH__ = typeof graph === "string" ? JSON.parse(graph) : graph
 
-  const fn = new Function("window", "document", "sessionStorage", "location", corpo)
-  let erro: Error | null = null
+  const fn = new Function("window", "document", "sessionStorage", "location", body)
+  let error: Error | null = null
   try {
     fn(dom.window, dom.document, dom.window.sessionStorage, dom.window.location)
   } catch (e) {
-    erro = e instanceof Error ? e : new Error(String(e))
+    error = e instanceof Error ? e : new Error(String(e))
   }
 
-  return { erro, dom, assinatura: assinatura(dom) }
+  return { error, dom, signature: signature(dom) }
 }
 
 /**
- * Resumo estável do DOM construído: quantos nós de cada tag, quantos atributos.
- * Duas execuções do mesmo template têm de dar a mesma assinatura.
+ * Stable summary of the built DOM: how many nodes of each tag, how many attributes.
+ * Two runs of the same template must give the same signature.
  */
-export function assinatura(dom: Dom): string {
-  const contagem: Record<string, number> = {}
-  let nos = 0, attrs = 0
-  const visitar = (e: El) => {
-    nos++
-    contagem[e.tagName] = (contagem[e.tagName] ?? 0) + 1
+export function signature(dom: Dom): string {
+  const counts: Record<string, number> = {}
+  let nodes = 0, attrs = 0
+  const visit = (e: El) => {
+    nodes++
+    counts[e.tagName] = (counts[e.tagName] ?? 0) + 1
     attrs += Object.keys(e.attrs).length
-    for (const c of e.children) visitar(c)
+    for (const c of e.children) visit(c)
   }
-  for (const e of dom.porId.values()) visitar(e)
-  const tags = Object.keys(contagem).sort().map(t => `${t}:${contagem[t]}`).join(",")
-  return `nos=${nos} attrs=${attrs} ${tags}`
+  for (const e of dom.byId.values()) visit(e)
+  const tags = Object.keys(counts).sort().map(t => `${t}:${counts[t]}`).join(",")
+  return `nodes=${nodes} attrs=${attrs} ${tags}`
 }

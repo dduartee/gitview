@@ -1,18 +1,18 @@
-// Categoria de uma branch por convenção de nome. Determina a cor.
+// Category of a branch by name convention. Determines the color.
 //
-// Mora em `lib/` porque `lib/trunks.ts` precisa dela e o `no-circular` proíbe `lib` de
-// importar o index do package — seria index → trunks → index.
+// Lives in `lib/` because `lib/trunks.ts` needs it and `no-circular` forbids `lib` from
+// importing the package index — it would be index → trunks → index.
 
-/** Ordem de prioridade das categorias: usada para desempatar lanes de mesma data. */
-export const PRIO = ["main", "dev", "release", "hotfix", "feature", "other"]
+/** Priority order of the categories: used to break ties between lanes of the same date. */
+export const CATEGORY_ORDER = ["main", "dev", "release", "hotfix", "feature", "other"]
 
 /**
- * `develop` NÃO é categoria `main`: continua `dev`. Isso é deliberado — a categoria é o
- * que `merge` usa para escolher alvo, e `intoOf` manda feature e other para `dev ?? main`.
- * Se `develop` fosse `main`, `pick("main")` escolheria o commit mais recente entre as duas
- * e as features passariam a mirar `main` em vez de `develop`: bug silencioso de plano de
- * merge trocando um bug de cor. `develop` é tronco, e tronco se resolve à parte — veja
- * `lib/trunks.ts`.
+ * `develop` is NOT category `main`: it stays `dev`. This is deliberate — the category is
+ * what `merge` uses to pick a target, and `intoOf` sends feature and other to `dev ?? main`.
+ * If `develop` were `main`, `pick("main")` would pick the newest commit between the two
+ * and features would start aiming at `main` instead of `develop`: a silent merge-plan bug
+ * traded for a color bug. `develop` is a default branch, and default branch is resolved
+ * separately — see `lib/trunks.ts`.
  */
 export const catOf = (n: string): string => {
   const s = n.toLowerCase()

@@ -1,23 +1,25 @@
-// A view do grafo no terminal.
+// The graph view in the terminal.
 //
-// Estado de navegação (seleção, pan, zoom, painel) e o desenho. A classe é autocontida:
-// recebe tudo que precisa pelo construtor, e `renderSelf` é uma lista de chamadas.
+// Navigation state (selection, pan, zoom, panel) and the drawing. The class is
+// self-contained: it receives everything it needs through the constructor, and `renderSelf`
+// is a list of calls.
 //
-// Nada aqui decide *o que* é tronco ou *o que* é categoria — isso é do `model`. A cor e a
-// lane chegam prontas; a view só sabe colocar célula.
+// Nothing here decides *what* is the default branch or *what* is a category — that is the
+// `model`'s job. The colour and the lane arrive ready; the view only knows how to place a
+// cell.
 
 import { Renderable, type MouseEvent, type OptimizedBuffer, type RenderContext } from "@opentui/core"
-import { BG, DX, visivel, type Model } from "../../model/index.ts"
+import { BG, DX, visible, type Model } from "../../model/index.ts"
 import type { createMergePlanner } from "../../merge/index.ts"
-import { BOT, C, GUT, Pintor, TOP } from "./pintor.ts"
+import { BOT, C, GUT, Painter, TOP } from "./pintor.ts"
 
-/** Ancestrais do commit selecionado, ou null quando não está filtrando. */
-type Ancestrais = Set<string> | null
+/** Ancestors of the selected commit, or null when not filtering. */
+type Ancestors = Set<string> | null
 
 export class GitView extends Renderable {
   cur: number
   sx = 0; sy = 0
-  anc: Ancestrais = null
+  anc: Ancestors = null
   hover: number | null = null
   panel = false
   pscroll = 0
@@ -36,15 +38,15 @@ export class GitView extends Renderable {
     this.cur = m.idx.get(m.headHash) ?? m.N - 1
   }
 
-  /** A vista que o Pintor desenha. Um objeto, para o Pintor não conhecer o Renderable. */
-  private vista() {
+  /** The viewport the Painter draws. An object, so the Painter does not know the Renderable. */
+  private viewport() {
     return {
       sx: this.sx, sy: this.sy, width: this.width, height: this.height,
       x: this.x, y: this.y, cur: this.cur, hover: this.hover, anc: this.anc,
     }
   }
 
-  /** Mantém o commit selecionado dentro da tela, com uma margem. */
+  /** Keeps the selected commit on screen, with a margin. */
   reveal() {
     const vw = this.width - GUT, vh = this.height - TOP - BOT
     const x = this.m.X[this.cur], y = this.m.Y[this.cur]
@@ -60,13 +62,13 @@ export class GitView extends Renderable {
     this.sy = Math.min(Math.max(0, this.sy), this.m.MAXY)
   }
 
-  /** O commit sob o ponteiro, ou a ponta da branch se o ponteiro estiver no nome. -1 se nada. */
+  /** The commit under the pointer, or the branch tip if the pointer is on the name. -1 if none. */
   private hit(ex: number, ey: number): number {
     const wx = ex - this.x - GUT + this.sx, wy = ey - this.y - TOP + this.sy
     const i = Math.round(wx / DX)
     if (i >= 0 && i < this.m.N && Math.abs(this.m.X[i] - wx) <= 1 && this.m.Y[i] === wy) return i
     for (const b of this.m.lanes) {
-      if (!b.label || !visivel(b) || wy !== b.y) continue
+      if (!b.label || !visible(b) || wy !== b.y) continue
       const s = b.x1 * DX + 2
       if (wx >= s && wx < s + b.label.length) return b.x1
     }
@@ -124,26 +126,26 @@ export class GitView extends Renderable {
     this.requestRender()
   }
 
-  /** Adia trabalho caro para fora do ciclo de render, e mostra o erro na status bar. */
+  /** Defers expensive work out of the render cycle, and shows the error in the status bar. */
   private later(f: () => void) {
     setTimeout(() => {
-      try { f() } catch (e) { this.msg = "erro: " + (e instanceof Error ? e.message : String(e)) }
+      try { f() } catch (e) { this.msg = "error: " + (e instanceof Error ? e.message : String(e)) }
       this.requestRender()
     }, 30)
   }
 
   openPlan() {
-    this.msg = "analisando merges…"; this.requestRender()
+    this.msg = "analyzing merges…"; this.requestRender()
     this.later(() => { this.planner.getReport(); this.panel = true; this.pscroll = 0; this.msg = "" })
   }
 
   doExport() {
-    this.msg = "analisando e exportando…"; this.requestRender()
+    this.msg = "analyzing and exporting…"; this.requestRender()
     this.later(() => {
       try {
-        this.msg = "exportado: " + this.onExport()
+        this.msg = "exported: " + this.onExport()
         setTimeout(() => { this.msg = ""; this.requestRender() }, 7000)
-      } catch (e) { this.msg = "erro: " + (e instanceof Error ? e.message : String(e)); this.requestRender() }
+      } catch (e) { this.msg = "error: " + (e instanceof Error ? e.message : String(e)); this.requestRender() }
     })
   }
 
@@ -159,7 +161,7 @@ export class GitView extends Renderable {
     this.hover = null
     if (name === "left") this.cur = Math.max(0, this.cur - (shift ? 20 : 1))
     else if (name === "right") this.cur = Math.min(this.m.N - 1, this.cur + (shift ? 20 : 1))
-    else if (name === "up" || name === "down") { this.laneVizinha(name === "up" ? -1 : 1) }
+    else if (name === "up" || name === "down") { this.neighborLane(name === "up" ? -1 : 1) }
     else if (name === "home" || (name === "g" && !shift)) this.cur = 0
     else if (name === "end" || (name === "g" && shift)) this.cur = this.m.N - 1
     else if (name === "h") this.cur = this.m.idx.get(this.m.headHash) ?? this.m.N - 1
@@ -169,63 +171,63 @@ export class GitView extends Renderable {
     this.reveal(); this.requestRender()
   }
 
-  /** O commit mais próximo na lane acima (d = -1) ou abaixo (d = +1). */
-  private laneVizinha(d: number) {
+  /** The nearest commit in the lane above (d = -1) or below (d = +1). */
+  private neighborLane(d: number) {
     let best = -1, bs = 1e9
     for (let i = 0; i < this.m.N; i++) {
       const dy = (this.m.Y[i] - this.m.Y[this.cur]) * d
       if (dy <= 0) continue
-      // distância vertical pesa 10000× a horizontal: primeiro escolhe a lane, depois o commit
+      // vertical distance weighs 10000× the horizontal: it picks the lane first, then the commit
       const s = dy * 10000 + Math.abs(this.m.X[i] - this.m.X[this.cur])
       if (s < bs) { bs = s; best = i }
     }
     if (best >= 0) this.cur = best
   }
 
-  /** Alterna o filtro de ancestrais. `null` volta a mostrar tudo. */
+  /** Toggles the ancestors filter. `null` shows everything again. */
   toggle() {
     if (this.anc) { this.anc = null; return }
-    const s = new Set<string>(), pilha = [this.m.cs[this.cur].hash]
-    while (pilha.length) {
-      const h = pilha.pop()!
+    const s = new Set<string>(), stack = [this.m.cs[this.cur].hash]
+    while (stack.length) {
+      const h = stack.pop()!
       if (s.has(h)) continue
       s.add(h)
-      this.m.byHash.get(h)?.parents.forEach(p => pilha.push(p))
+      this.m.byHash.get(h)?.parents.forEach(p => stack.push(p))
     }
     this.anc = s
   }
 
   protected override renderSelf(buf: OptimizedBuffer) {
     if (!this.ready) { this.ready = true; this.reveal() }
-    const p = new Pintor(this.vista(), buf, this.m)
+    const p = new Painter(this.viewport(), buf, this.m)
 
     buf.fillRect(this.x, this.y, this.width, this.height, C(BG))
-    p.tags()           // marcadores amarelos no topo
-    p.arestas()        // ligações, incluso o "cabelo" entre lanes
-    p.nomesDasLanes()  // o nome de cada branch na ponta
-    p.commits()        // os pontos
-    p.colunaFixa()     // nomes abreviados, que não rolam com o pan
-    this.chrome(buf)   // cabeçalho e rodapé
-    if (this.panel) this.painelDeMerge(buf)
+    p.tags()           // yellow markers at the top
+    p.edges()          // links, including the "hair" between lanes
+    p.laneNames()      // each branch name at its tip
+    p.commits()        // the dots
+    p.fixedColumn()    // abbreviated names, which do not scroll with the pan
+    this.chrome(buf)   // header and footer
+    if (this.panel) this.mergePanel(buf)
   }
 
   private chrome(buf: OptimizedBuffer) {
     const { x: ox, y: oy, width: W, height: H } = this
     const hbg = C("#1b1e25")
     const c = this.m.cs[this.hover ?? this.cur]
-    const fora = this.m.lanes.filter(b => visivel(b) && (b.y < this.sy || b.y > this.sy + H - TOP - BOT - 1)).length
-    // O tronco aparece porque o TUI não tem toggle de pinning: aqui a lista é sempre
-    // aplicada. No HTML existe o interruptor, então lá ela é opcional.
-    const tr = this.m.troncos.length ? ` · tronco: ${this.m.troncos.join(", ")}` : " · sem tronco"
+    const outOfView = this.m.lanes.filter(b => visible(b) && (b.y < this.sy || b.y > this.sy + H - TOP - BOT - 1)).length
+    // The default branch shows because the TUI has no pinning toggle: here the list is
+    // always applied. The HTML has the switch, so there it is optional.
+    const defaultBranchHint = this.m.defaultBranches.length ? ` · default branch: ${this.m.defaultBranches.join(", ")}` : " · no default branch"
 
     buf.fillRect(ox, oy, W, 1, hbg)
-    buf.drawText(` gitview  ${this.m.repo}  ${this.m.N} commits · ${this.m.loc.size} branches${tr}${fora ? ` · ▼ +${fora} fora da vista` : ''}${this.anc ? "  [ancestrais]" : ""}`, ox, oy, C("#d9dce3"), hbg)
+    buf.drawText(` gitview  ${this.m.repo}  ${this.m.N} commits · ${this.m.loc.size} branches${defaultBranchHint}${outOfView ? ` · ▼ +${outOfView} out of view` : ''}${this.anc ? "  [ancestors]" : ""}`, ox, oy, C("#d9dce3"), hbg)
 
     buf.fillRect(ox, oy + H - BOT, W, BOT, hbg)
     buf.drawText(`${c.hash.slice(0, 7)}  ${c.author}  ${c.date.slice(0, 16).replace("T", " ")}  ${c.refs.join(", ")}`, ox + 1, oy + H - 2, C("#8a919c"), hbg)
     buf.drawText(`${c.subject}`.slice(0, Math.max(0, W - 2)), ox + 1, oy + H - 1, C("#e4e7ec"), hbg)
 
-    const help = "clique/←→↑↓ selecionar  2×/⏎ ancestrais  p merge  e exportar  q sair"
+    const help = "click/←→↑↓ select  2×/⏎ ancestors  p merge  e export  q quit"
     if (this.msg) {
       buf.fillRect(ox, oy + H - 1, W, 1, hbg)
       buf.drawText(this.msg.slice(0, W - 2), ox + 1, oy + H - 1, C("#e3b341"), hbg)
@@ -234,15 +236,15 @@ export class GitView extends Renderable {
     }
   }
 
-  /** Painel do plano de merge, sobreposto ao grafo. */
-  private painelDeMerge(buf: OptimizedBuffer) {
+  /** Merge plan panel, overlaid on the graph. */
+  private mergePanel(buf: OptimizedBuffer) {
     const { x: ox, y: oy, width: W, height: H } = this
     const lines = this.planner.planLines(this.planner.getReport())
     const w = Math.min(W - 4, 110), ph = H - TOP - BOT - 2, pbg = C("#1b1e25")
     const x0 = ox + Math.floor((W - w) / 2), y0 = oy + TOP + 1, vh = ph - 2
     this.pscroll = Math.min(this.pscroll, Math.max(0, lines.length - vh))
     buf.fillRect(x0, y0, w, ph, pbg)
-    buf.drawText(" Planejamento de merge — ↑↓/roda rolar · p fechar ", x0 + 1, y0, C("#e4e7ec"), pbg)
+    buf.drawText(" Merge plan — ↑↓/wheel scroll · p close ", x0 + 1, y0, C("#e4e7ec"), pbg)
     lines.slice(this.pscroll, this.pscroll + vh).forEach((l, k) => buf.drawText(l.t.slice(0, w - 4), x0 + 2, y0 + 1 + k, C(l.c), pbg))
   }
 }

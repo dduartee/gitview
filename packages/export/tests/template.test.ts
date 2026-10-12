@@ -1,16 +1,16 @@
-// Exercita o script do template com o shim de DOM.
+// Exercises the template script against the DOM shim.
 //
-// O que estes testes garantem: o template **executa sem lançar**, os `id` que ele busca
-// existem no HTML, e a execução é determinística. É a rede que faltava no arquivo mais
-// arriscado do repo — antes disto, qualquer mudança no template era verificada abrindo o
-// HTML na mão.
+// What these tests guarantee: the template **runs without throwing**, the `id`s it looks
+// up exist in the HTML, and execution is deterministic. It is the net that was missing on
+// the riskiest file in the repo — before this, any change to the template was verified by
+// opening the HTML by hand.
 
 import { describe, expect, test } from "bun:test"
 import { createFakeGit, leftRight, logOutput } from "../../git/fake.ts"
 import { buildModel } from "../../model/index.ts"
 import { createMergePlanner } from "../../merge/index.ts"
 import { project, TPL_DAG } from "../index.ts"
-import { assinatura, exercitar, rodarTemplate } from "./dom.ts"
+import { interact, runTemplate, signature } from "./dom.ts"
 
 const g = createFakeGit({
   "log --all": { out: logOutput([
@@ -24,55 +24,55 @@ const g = createFakeGit({
   "rev-list --left-right --count m1...d1": { out: leftRight(1, 0) },
 })
 
-const grafo = () => {
+const graph = () => {
   const m = buildModel(g)
   const p = createMergePlanner(g, m)
   return JSON.stringify(project(g, m, p.getReport(), p.getMatrix()))
 }
 
 describe("template HTML", () => {
-  test("executa sem lançar contra uma projeção real", () => {
-    const r = rodarTemplate(TPL_DAG, grafo())
-    expect(r.erro).toBeNull()
+  test("runs without throwing against a real projection", () => {
+    const r = runTemplate(TPL_DAG, graph())
+    expect(r.error).toBeNull()
   })
 
-  test("todo id que o script busca existe no HTML", () => {
-    const r = rodarTemplate(TPL_DAG, grafo())
-    // `getElementById` de id inexistente devolve null no browser, e o template então
-    // quebra em `.textContent` de null. Este conjunto tem de estar vazio.
-    expect([...r.dom.idsFaltando]).toEqual([])
+  test("every id the script looks up exists in the HTML", () => {
+    const r = runTemplate(TPL_DAG, graph())
+    // `getElementById` of a nonexistent id returns null in the browser, and the template
+    // then breaks on `.textContent` of null. This set must be empty.
+    expect([...r.dom.missingIds]).toEqual([])
   })
 
-  test("constrói o DAG: cria nós e ligações", () => {
-    const r = rodarTemplate(TPL_DAG, grafo())
-    // 3 commits, cada um vira um nó; `circle` é o que o SVG usa
-    expect(r.assinatura).toContain("circle:")
-    expect(r.assinatura).toMatch(/nos=[1-9]/)
+  test("builds the DAG: creates nodes and links", () => {
+    const r = runTemplate(TPL_DAG, graph())
+    // 3 commits, each becomes a node; `circle` is what the SVG uses
+    expect(r.signature).toContain("circle:")
+    expect(r.signature).toMatch(/nodes=[1-9]/)
   })
 
-  test("é determinístico: duas execuções dão a mesma assinatura", () => {
-    const a = rodarTemplate(TPL_DAG, grafo())
-    const b = rodarTemplate(TPL_DAG, grafo())
-    expect(assinatura(b.dom)).toBe(assinatura(a.dom))
+  test("is deterministic: two runs give the same signature", () => {
+    const a = runTemplate(TPL_DAG, graph())
+    const b = runTemplate(TPL_DAG, graph())
+    expect(signature(b.dom)).toBe(signature(a.dom))
   })
 
-  test("projeção vazia não quebra: cai no caminho de erro amigável", () => {
-    const r = rodarTemplate(TPL_DAG, JSON.stringify({ repo: "x", commits: [] }))
-    expect(r.erro).toBeNull()
-    // o script escreve "sem dados" no título quando não há commits
-    const t = r.dom.porId.get("t")
-    expect(t?.textContent).toContain("sem dados")
+  test("empty projection does not break: falls into the friendly error path", () => {
+    const r = runTemplate(TPL_DAG, JSON.stringify({ repo: "x", commits: [] }))
+    expect(r.error).toBeNull()
+    // the script writes "no data" in the title when there are no commits
+    const t = r.dom.byId.get("t")
+    expect(t?.textContent).toContain("no data")
   })
 
-  test("as interações não quebram: abas, interruptores, busca e setas", () => {
-    // Cobre os caminhos que o carregamento não toca — zoom, filtro, troca de aba. Um
-    // `var`→`let` mal feito apareceria aqui, não no primeiro render.
-    const r = rodarTemplate(TPL_DAG, grafo())
-    expect(r.erro).toBeNull()
-    const ex = exercitar(r.dom)
-    expect(ex.acionados).toBeGreaterThan(0)
-    expect(ex.erros).toEqual([])
-    // trocar interruptor grava sessão e recarrega: é o comportamento do template
+  test("the interactions do not break: tabs, switches, search, and arrows", () => {
+    // Covers the paths loading does not touch — zoom, filter, tab switching. A botched
+    // `var`→`let` would show up here, not in the first render.
+    const r = runTemplate(TPL_DAG, graph())
+    expect(r.error).toBeNull()
+    const ex = interact(r.dom)
+    expect(ex.fired).toBeGreaterThan(0)
+    expect(ex.errors).toEqual([])
+    // toggling a switch writes session and reloads: that is the template's behavior
     expect(r.dom.reloads).toBeGreaterThan(0)
   })
 })

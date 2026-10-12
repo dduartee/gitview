@@ -18,9 +18,9 @@
     "strict": true,
     "skipLibCheck": true,
     "noFallthroughCasesInSwitch": true,
-    // Medido: ligar esta regra dá 77 erros no arquivo único (HEAD) e 80 depois do split em
-    // packages/ — ou seja, o split não resolveu. A maior parte é `!` e `??` que o código
-    // real já tem. Manter desligado até alguém querer pagar essa conta.
+    // Measured: turning this rule on gives 77 errors on the single file (HEAD) and 80 after
+    // the split into packages/ — so the split did not fix it. Most are `!` and `??` the real
+    // code already has. Keep it off until someone wants to pay that bill.
     "noUncheckedIndexedAccess": false,
     "noImplicitOverride": true,
 

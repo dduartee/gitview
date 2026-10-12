@@ -1,102 +1,105 @@
 # CONSTRAINTS
 
 ```yaml
-Projeto: gitview
-Descrição: grafo git por lanes no terminal, e export HTML de um arquivo só
-Nível: 2 — PRAGMÁTICO
+Project: gitview
+Description: git graph by lanes in the terminal, and single-file HTML export
+Level: 2 — PRAGMATIC
 ```
 
-Escolhido por três eixos de `../suckless-manifest/DEPTH-CONSTRAINTS.md`: 1 pessoa
-mantendo (Nível 1–2), criticidade baixa — CLI pessoal, não serviço (Nível 1–2),
-overhead pequeno (Nível 2). O template `cli-tool` do manifesto (Nível 1, 500 LOC, C)
-é para um `dmenu`; o gitview faz duas coisas — TUI e export HTML — e tem interface
-TTY com mouse.
+Chosen by three axes of `../suckless-manifest/DEPTH-CONSTRAINTS.md`: 1 person
+maintaining (Level 1–2), low criticality — a personal CLI, not a service (Level 1–2),
+small overhead (Level 2). The manifest's `cli-tool` template (Level 1, 500 LOC, C)
+is for a `dmenu`; gitview does two things — TUI and HTML export — and has a TTY
+interface with mouse.
 
 ## Constraints
 
 ```yaml
-max_lines_of_code: 2400        # inclui o template HTML embutido; mede volume, não complexidade
-max_dependencies_direct: 5     # runtime apenas; dev não conta
-max_lines_per_function: 50     # o limite que mede legibilidade de verdade
+max_lines_of_code: 2400        # includes the embedded HTML template; measures volume, not complexity
+max_dependencies_direct: 5     # runtime only; dev doesn't count
+max_lines_per_function: 50     # the limit that actually measures readability
 allowed_languages: [TypeScript]
 transpilation_allowed: false
-build_step: none               # bun executa TypeScript direto
+build_step: none               # bun runs TypeScript directly
 ```
 
-**O teto é 2400, e hoje o código está em 1987.** O número veio de medição, não de gosto:
-partimos de 2021, a decomposição em packages levou a um pico de 2198, e daí o teto de 2400.
-Depois de extrair `GitView` e `Pintor` de `renderSelf`, quebrar `buildModel` e
-`createMergePlanner`, e eliminar exports mortos e uma função duplicada, o total **caiu abaixo
-do ponto de partida**.
+**The ceiling is 2400, and today the code sits at 1987.** The number came from measurement,
+not taste: we started at 2021, the decomposition into packages led to a peak of 2198, hence
+the 2400 ceiling. After extracting `GitView` and `Painter` from `renderSelf`, splitting
+`buildModel` and `createMergePlanner`, and removing dead exports and a duplicated function,
+the total **fell below the starting point**.
 
-| | pico | hoje |
+| | peak | today |
 | --- | --- | --- |
 | `tui/index.ts` | 225 | 34 |
 | `tui/lib/view.ts` | — | 248 |
 | `tui/lib/pintor.ts` | — | 157 |
 | `merge/index.ts` | 122 | 202 |
-| **total (binário)** | 2198 | **1987** |
+| **total (binary)** | 2198 | **1987** |
 
-`view.ts` e `pintor.ts` não são código novo: é o desenho que estava dentro de `renderSelf`,
-agora com endereço. Por isso LOC de arquivo mede **volume**, não complexidade — e é por isso
-que o teto que de fato pegaria uma função ilegível é o outro, `max_lines_per_function`.
+`view.ts` and `pintor.ts` are not new code: it is the drawing that used to live inside
+`renderSelf`, now with an address. That is why file LOC measures **volume**, not complexity —
+and why the ceiling that would actually catch an unreadable function is the other one,
+`max_lines_per_function`.
 
-**Folga de 17%.** Com o código em 1987, os 2400 sobraram. Baixar para ~2100 daria folga real
-de ~5%, que é o que um teto existe para fazer: obrigar a justificar cada linha nova.
+**17% of headroom.** With the code at 1987, the 2400 left plenty of room. Lowering it to
+~2100 would give real headroom of ~5%, which is what a ceiling exists to do: force every
+new line to be justified.
 
-**Testes ficam fora da conta.** `script/sinks.ts` mede só o que vai para o binário; testes
-aparecem à parte. Contá-los no teto puniria quem escreve verificação, que é o inverso do que
-este arquivo existe para incentivar.
+**Tests stay out of the count.** `script/sinks.ts` measures only what goes into the binary;
+tests appear separately. Counting them toward the ceiling would punish whoever writes
+verification, the opposite of what this file exists to encourage.
 
-`+80` em `merge` é o preço de nomes que substituíram funções de 60+ linhas com oito variáveis
-de estado. Custo conhecido em troca de legibilidade, não crescimento acidental.
+The `+80` in `merge` is the price of names that replaced 60+ line functions with eight state
+variables. A known cost in exchange for readability, not accidental growth.
 
-**O que este teto não mede:** `packages/export/lib/template.ts` são 497 linhas de CSS e JS
-dentro de uma string literal, fora do alcance do `tsc`. É o arquivo mais arriscado do
-repo e nenhuma métrica automática o alcança — ver regra 4.
+**What this ceiling does not measure:** `packages/export/lib/template.ts` is 497 lines of CSS
+and JS inside a string literal, beyond `tsc`'s reach. It is the riskiest file in the repo and
+no automatic metric reaches it — see rule 4.
 
 ## approved_packages
 
 | package | kind | reason |
 | --- | --- | --- |
-| `@opentui/core` | runtime | sem ele não há TUI em TypeScript. Escrever o buffer de células, o parse de mouse e o modo raw do terminal é o @dmenu inteiro. **Única dep runtime.** |
-| `bun-types` (`@types/bun`) | dev | tipos do runtime |
-| `dependency-cruiser` | dev | impõe as 5 regras de fronteira de package. TypeScript não expressa "não alcance `lib/` de fora" — um deep import compila igual. Framework de arquitetura, sim; questionável pelos critérios do manifesto, mantido porque a regra é verificável e o custo é zero em runtime. |
+| `@opentui/core` | runtime | without it there is no TUI in TypeScript. Writing the cell buffer, the mouse parsing and the terminal raw mode is the whole @dmenu. **Only runtime dep.** |
+| `bun-types` (`@types/bun`) | dev | runtime types |
+| `dependency-cruiser` | dev | enforces the 5 package boundary rules. TypeScript does not express "don't reach `lib/` from outside" — a deep import compiles the same. An architecture framework, yes; questionable by the manifest's criteria, kept because the rule is verifiable and the cost is zero at runtime. |
 
 ## rejected_packages
 
 | package | reason |
 | --- | --- |
-| qualquer renderer de UI (React, Ink, blessed,…) | cada um traz 100+ deps transitivas e um modelo de estado que competiria com o `GitView` |
-| CLI framework (commander, yargs) | são 6 linhas de `args.indexOf`. `VALUED` + `flag()` dão o controle e 0 deps |
-| parser de argv (yargs-parser, minimist) | idem |
-| bundler (esbuild, tsup, rollup) | `bun gitview.ts` já executa. Build seria passo sem retorno |
-| gerador de HTML (lit, preact, react) | o export precisa ser **um arquivo só, sem CDN e sem JS externo**. Framework de template violaria a garantia central da ferramenta |
-| test runner (jest, vitest) | `bun test` já existe |
-| ORM / db / http client | a ferramenta é read-only sobre `git` e o sistema de arquivos. Nada de rede |
+| any UI renderer (React, Ink, blessed,…) | each one brings 100+ transitive deps and a state model that would compete with `GitView` |
+| CLI framework (commander, yargs) | it is 6 lines of `args.indexOf`. `VALUED` + `flag()` give control and 0 deps |
+| argv parser (yargs-parser, minimist) | same |
+| bundler (esbuild, tsup, rollup) | `bun gitview.ts` already runs. A build would be a step with no return |
+| HTML generator (lit, preact, react) | the export must be **a single file, with no CDN and no external JS**. A template framework would violate the tool's central guarantee |
+| test runner (jest, vitest) | `bun test` already exists |
+| ORM / db / http client | the tool is read-only over `git` and the filesystem. No network |
 
-## Regras
+## Rules
 
-1. **Linhas removidas > linhas adicionadas.** O lema do manifesto é a métrica de cada
-   mudança. Um PR que adiciona sem remover precisa justificar no corpo.
-2. **Dep nova é rejeição por padrão.** Só entra com o motivo escrito acima do motivo real.
-3. **Toda função cabe na tela.** Mais de ~50 linhas é dívida de legibilidade, não
-   complexidade intrínseca. O limite não é automático: é revisado.
-4. **`packages/export/lib/template.ts` é o arquivo mais arriscado do repo.** É JS sem
-   tipos dentro de uma string, não passa por `tsc` e só é exercitado por abrir o HTML.
-   Toda mudança nele exige rodar `--export` e olhar o resultado.
-5. **Sem framework de arquitetura novo.** O `dependency-cruiser` já é o limite de
-   quanta indireção este projeto aceita.
+1. **Removed lines > added lines.** The manifest's motto is the metric for every change.
+   A PR that adds without removing must justify it in the body.
+2. **A new dep is rejected by default.** It only gets in with the reason written above the
+   real reason.
+3. **Every function fits on screen.** More than ~50 lines is readability debt, not intrinsic
+   complexity. The limit is not automatic: it is reviewed.
+4. **`packages/export/lib/template.ts` is the riskiest file in the repo.** It is untyped JS
+   inside a string, does not pass through `tsc` and is only exercised by opening the HTML.
+   Every change to it requires running `--export` and looking at the result.
+5. **No new architecture framework.** `dependency-cruiser` is already the limit of how much
+   indirection this project accepts.
 
-## Validação
+## Validation
 
 ```bash
-bun run check              # typecheck + fronteiras + testes
-bun run sinks              # este arquivo: LOC e deps contra os tetos
+bun run check              # typecheck + boundaries + tests
+bun run sinks              # this file: LOC and deps against the ceilings
 ```
 
-## Onde este arquivo erra
+## Where this file is wrong
 
-Um teto que ninguém olha não é constraint, é decoração. `sinks` existe para que a
-primeira pessoa que estourar receba o número na cara, e para que este arquivo possa ser
-corrigido com evidência em vez de bom senso.
+A ceiling nobody looks at is not a constraint, it is decoration. `sinks` exists so that the
+first person to blow it gets the number in their face, and so that this file can be corrected
+with evidence instead of common sense.

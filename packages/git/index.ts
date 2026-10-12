@@ -1,26 +1,26 @@
-// Única forma de falar com o git em todo o projeto.
+// The only way to talk to git in the whole project.
 //
-// Interface: `createGit(repo)` devolve `{ repo, run, git }`. Nenhum outro package vê
-// `execFileSync`, o buffer de 512 MB ou os códigos de saída — eles conhecem só isto aqui.
+// Interface: `createGit(repo)` returns `{ repo, run, git }`. No other package sees
+// `execFileSync`, the 512 MB buffer or the exit codes — they only know this here.
 //
-// Dois adapters: o de produção (`createGit`) e um fake em `tests/`, que devolve o mesmo
-// formato a partir de fixtures. É por isso que a seam é real.
+// Two adapters: the production one (`createGit`) and a fake in `tests/`, which returns the same
+// format from fixtures. That is why the seam is real.
 
 import { execGit } from "./lib/exec.ts"
 
-/** Resultado de um comando git. `code !== 0` não é erro — é como se descobre conflito. */
+/** Result of a git command. `code !== 0` is not an error — it is how a conflict is discovered. */
 export type GitResult = { out: string; code: number }
 
 export type Git = {
-  /** Caminho do repositório, já resolvido. Todos os comandos rodam com `-C repo`. */
+  /** Repository path, already resolved. Every command runs with `-C repo`. */
   repo: string
-  /** Comando que pode falhar. Devolve stdout e código, nunca lança. */
+  /** Command that may fail. Returns stdout and code, never throws. */
   run: (a: string[], env?: Record<string, string>) => GitResult
-  /** Comando que tem de dar certo. Lança no código != 0. */
+  /** Command that must succeed. Throws on code != 0. */
   git: (...a: string[]) => string
 }
 
-/** Identidade fixa para os commits sintéticos do planejador de merge. */
+/** Fixed identity for the merge planner's synthetic commits. */
 export const SIM_ENV = {
   GIT_AUTHOR_NAME: "gitview",
   GIT_AUTHOR_EMAIL: "gitview@local",
@@ -32,7 +32,7 @@ export function createGit(repo: string): Git {
   const run = (a: string[], env?: Record<string, string>): GitResult => execGit(repo, a, env)
   const git = (...a: string[]): string => {
     const r = run(a)
-    if (r.code) throw new Error(`git ${a[0]} falhou`)
+    if (r.code) throw new Error(`git ${a[0]} failed`)
     return r.out
   }
   return { repo, run, git }

@@ -1,16 +1,17 @@
-// Testes do model, pela interface pública: `buildModel(git)`.
+// Tests of the model, through the public interface: `buildModel(git)`.
 //
-// Nada aqui importa `lib/`. As respostas do git saem do fake, que é entry point.
+// Nothing here imports `lib/`. The git answers come from the fake, which is an entry point.
 
 import { describe, expect, test } from "bun:test"
 import { createFakeGit, leftRight, logOutput } from "../../git/fake.ts"
-import { buildModel, catOf, visivel, DX } from "../index.ts"
+import { buildModel, catOf, visible, DX } from "../index.ts"
 
 /**
- * Repo de 5 commits: main, três branches que saem de `a1`, e uma continuation.
+ * Repo with 5 commits: main, three branches that come off `a1`, and a continuation.
  *
- * A lista está na ordem que o `git log` realmente entrega: **mais recente primeiro**.
- * `e1` (filho de `b1`) vem no topo. O model inverte para `cs`, e é aí que `a1` vira 0.
+ * The list is in the order `git log` actually delivers: **newest first**.
+ * `e1` (child of `b1`) comes at the top. The model reverses to `cs`, and that is where
+ * `a1` becomes 0.
  */
 const repo = (over: Record<string, { out: string; code?: number }> = {}) => createFakeGit({
   "log --all": {
@@ -23,9 +24,9 @@ const repo = (over: Record<string, { out: string; code?: number }> = {}) => crea
     ]),
   },
   "rev-parse HEAD": { out: "e1\n" },
-  // O `alvo` da detecção de inativas é o **hash** da ponta de main (`a1`), não o nome
-  // "main" — é isso que `loc.get("main")` devolve. As chaves abaixo são o que o model
-  // realmente pede; se o código mudar a consulta, os testes falham em vez de mentirem.
+  // The `target` of inactive detection is the **hash** of main's tip (`a1`), not the name
+  // "main" — that is what `loc.get("main")` returns. The keys below are what the model
+  // actually asks for; if the code changes the query, the tests fail instead of lying.
   "rev-list --left-right --count a1...b1": { out: leftRight(0, 2) },
   "rev-list --left-right --count a1...c1": { out: leftRight(0, 1) },
   "rev-list --left-right --count a1...d1": { out: leftRight(0, 1) },
@@ -35,7 +36,7 @@ const repo = (over: Record<string, { out: string; code?: number }> = {}) => crea
 const lane = (m: ReturnType<typeof buildModel>, name: string) => m.lanes.find(b => b.name === name)!
 
 describe("buildModel", () => {
-  test("cada commit cai na lane da branch que o possui", () => {
+  test("each commit falls into the lane of the branch that owns it", () => {
     const m = buildModel(repo())
     expect(m.owner.get("a1")!.name).toBe("main")
     expect(m.owner.get("b1")!.name).toBe("feature/login")
@@ -43,58 +44,60 @@ describe("buildModel", () => {
     expect(m.owner.get("d1")!.name).toBe("topic/spike")
   })
 
-  test("commit que nenhum first-parent alcança fica órfão, e vira lane sem nome", () => {
-    // `e1` é filho de `b1`, que já é de feature/login. A caminhada first-parent de
-    // feature/login vai de b1 para a1 e para — nunca chega em e1, porque e1 é mais
-    // recente que a ponta. Sobra sem dono e vira fantasma.
+  test("a commit no first-parent reaches is orphaned, and becomes a nameless lane", () => {
+    // `e1` is a child of `b1`, which already belongs to feature/login. The first-parent
+    // walk of feature/login goes from b1 to a1 and stops — it never reaches e1, because
+    // e1 is newer than the tip. It is left with no owner and becomes branchless.
     const m = buildModel(repo())
     expect(m.lanes.filter(b => b.name === "").map(b => b.list)).toEqual([["e1"]])
   })
 
-  test("a lane de uma branch caminha por first-parent, da ponta para trás", () => {
+  test("a branch lane walks first-parent, from the tip backwards", () => {
     const m = buildModel(repo())
-    // feature/login tem b1 como ponta; o first-parent de b1 é a1, que já é de main
+    // feature/login has b1 as its tip; b1's first-parent is a1, which already belongs to main
     expect(lane(m, "feature/login").list).toEqual(["b1"])
-    // main vai até a1 e para. `e1` (filho de b1) não é alcançado por first-parent,
-    // então sobra sem dono e vira fantasma — é o que a lane sem nome abaixo representa.
+    // main goes up to a1 and stops. `e1` (child of b1) is not reached by first-parent,
+    // so it is left with no owner and becomes branchless — that is what the nameless
+    // lane below represents.
     expect(lane(m, "main").list).toEqual(["a1"])
   })
 
-  test("o eixo X é o índice do commit vezes DX", () => {
+  test("the X axis is the commit index times DX", () => {
     const m = buildModel(repo())
     expect(m.X).toEqual([0, DX, DX * 2, DX * 3, DX * 4])
   })
 
-  test("`cs` é o log invertido, então X cresce para trás no tempo", () => {
+  test("`cs` is the reversed log, so X grows backwards in time", () => {
     const m = buildModel(repo())
-    // O `git log` entrega mais recente primeiro (`commits[0]` é `e1`); `cs` inverte para
-    // que o índice cresça com o tempo — commit mais antigo no índice 0.
+    // `git log` delivers newest first (`commits[0]` is `e1`); `cs` reverses so the index
+    // grows with time — oldest commit at index 0.
     expect(m.commits[0].hash).toBe("e1")
-    expect(m.cs[0].hash).toBe("a1")        // mais antigo
-    expect(m.cs[m.N - 1].hash).toBe("e1")  // mais recente
+    expect(m.cs[0].hash).toBe("a1")        // oldest
+    expect(m.cs[m.N - 1].hash).toBe("e1")  // newest
   })
 
-  test("main fica pinado no topo do eixo Y, com linha própria", () => {
+  test("main stays pinned at the top of the Y axis, with its own line", () => {
     const m = buildModel(repo())
-    // A linha 0 é reservada aos rótulos ("tags") quando há tags; sem elas, o tronco
-    // começa na 1. main é o primeiro tronco, então é a lane mais alta de todas.
-    const ys = m.lanes.filter(visivel).map(b => b.y)
+    // Line 0 is reserved for labels ("tags") when there are tags; without them, the
+    // default branch starts at 1. main is the first default branch, so it is the highest
+    // lane of all.
+    const ys = m.lanes.filter(visible).map(b => b.y)
     expect(lane(m, "main").y).toBe(Math.min(...ys))
-    expect(m.labels).toEqual([])   // este repo não tem tag
+    expect(m.labels).toEqual([])   // this repo has no tag
   })
 
-  test("cada lane visível ocupa uma linha inteira de altura RH", () => {
+  test("each visible lane occupies a whole line of height RH", () => {
     const m = buildModel(repo())
-    const ys = m.lanes.filter(visivel).map(b => b.y).sort((a, b) => a - b)
-    // main fica sozinha na linha 1 (a 0 é reservada a rótulos); as outras são empacotadas
-    // por não se sobrepor em x, de 3 em 3.
+    const ys = m.lanes.filter(visible).map(b => b.y).sort((a, b) => a - b)
+    // main sits alone on line 1 (0 is reserved for labels); the others are packed by not
+    // overlapping in x, every 3.
     expect(ys).toEqual([1, 4, 7, 10, 13])   // RH = 3
   })
 
-  test("lane cuja ponta já pertence a outra fica sem lista, marcada no tip", () => {
-    // main e release/1.0 apontam para o MESMO commit `a1`. main (PRIO menor) anda
-    // primeiro e fica com `a1`; release/1.0 então não tem commit exclusivo, e o model
-    // marca `tipAt` no índice de `a1` em vez de deixar a lane sumir.
+  test("a lane whose tip already belongs to another has no list, marked by its tip", () => {
+    // main and release/1.0 point to the SAME commit `a1`. main (lower CATEGORY_ORDER)
+    // goes first and keeps `a1`; release/1.0 then has no exclusive commit, and the model
+    // marks `tipAt` at the index of `a1` instead of letting the lane disappear.
     const g = createFakeGit({
       "log --all": {
         out: logOutput([
@@ -108,15 +111,15 @@ describe("buildModel", () => {
     const m = buildModel(g)
     const rel = lane(m, "release/1.0")
     expect(rel.list).toEqual([])
-    expect(rel.tipAt).toBe(0)          // índice de `a1` em cs (a1 é o mais antigo)
-    expect(visivel(rel)).toBe(true)   // visível, mas sem commits
+    expect(rel.tipAt).toBe(0)          // index of `a1` in cs (a1 is the oldest)
+    expect(visible(rel)).toBe(true)   // visible, but with no commits
     expect(m.owner.get("a1")!.name).toBe("main")
   })
 
-  test("commit de branch apagada vira fantasma, e continua no grafo", () => {
-    // `w1` não tem ref nenhuma: foi apagado. Vira lane sem nome. O ponto do teste é
-    // que ele continua no grafo e continua dono de um commit — nenhum commit some
-    // por falta de ref.
+  test("a commit from a deleted branch becomes branchless, and stays in the graph", () => {
+    // `w1` has no ref at all: it was deleted. It becomes a nameless lane. The point of
+    // the test is that it stays in the graph and keeps owning a commit — no commit
+    // disappears for lack of a ref.
     const g = createFakeGit({
       "log --all": {
         out: logOutput([
@@ -129,29 +132,29 @@ describe("buildModel", () => {
       "rev-list --left-right --count a1...b1": { out: leftRight(0, 1) },
     })
     const m = buildModel(g)
-    const ghosts = m.lanes.filter(b => b.name === "" && visivel(b))
-    expect(ghosts.length).toBe(1)
-    expect(ghosts[0].list).toEqual(["w1"])
+    const branchless = m.lanes.filter(b => b.name === "" && visible(b))
+    expect(branchless.length).toBe(1)
+    expect(branchless[0].list).toEqual(["w1"])
     expect(m.cs.some(c => c.hash === "w1")).toBe(true)
-    expect(m.owner.get("w1")).toBe(ghosts[0])
-    // e a lane do fantasma ocupa lugar no eixo Y, como qualquer outra
-    expect(m.Y[1]).toBe(ghosts[0].y)
+    expect(m.owner.get("w1")).toBe(branchless[0])
+    // and the branchless lane takes a spot on the Y axis, like any other
+    expect(m.Y[1]).toBe(branchless[0].y)
   })
 
-  test("ahead 0 marca a lane como inativa", () => {
+  test("ahead 0 marks the lane as inactive", () => {
     const m = buildModel(repo({ "rev-list --left-right --count a1...d1": { out: leftRight(3, 0) } }))
-    expect(m.inactivas.has("topic/spike")).toBe(true)
-    expect(m.inactivas.has("hotfix/urgent")).toBe(false)
+    expect(m.inactive.has("topic/spike")).toBe(true)
+    expect(m.inactive.has("hotfix/urgent")).toBe(false)
   })
 
-  test("main e master nunca são marcadas inativas", () => {
+  test("main and master are never marked inactive", () => {
     const m = buildModel(repo())
-    expect(m.inactivas.has("main")).toBe(false)
+    expect(m.inactive.has("main")).toBe(false)
   })
 })
 
 describe("catOf", () => {
-  test("classifica pelo sufixo e pelo prefixo do nome", () => {
+  test("classifies by the name's suffix and prefix", () => {
     expect(catOf("main")).toBe("main")
     expect(catOf("release/1.2")).toBe("release")
     expect(catOf("hotfix/urgent")).toBe("hotfix")
@@ -161,13 +164,13 @@ describe("catOf", () => {
     expect(catOf("whatever")).toBe("other")
   })
 
-  test("develop cai em `dev`, não em `main`", () => {
-    // É o comportamento atual, e é o que a GLOSSARY registra. `develop` NÃO é tronco,
-    // então não ganha pinning nem a cor de main. Ver issue aberta.
+  test("develop falls into `dev`, not `main`", () => {
+    // It is the current behavior, and it is what the GLOSSARY records. `develop` is NOT a
+    // default branch, so it gets no pinning and not main's color. See open issue.
     expect(catOf("develop")).toBe("dev")
   })
 
-  test("um path aninhado termina em main continua sendo main", () => {
+  test("a nested path ending in main is still main", () => {
     expect(catOf("team/platform/main")).toBe("main")
     expect(catOf("team/platform/develop")).toBe("dev")
   })
