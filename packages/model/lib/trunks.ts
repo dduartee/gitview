@@ -68,7 +68,11 @@ function fromNames(exists: (n: string) => boolean): string[] {
  * with that name exists — injected so this does not depend on `Model` and stays testable
  * through the interface.
  */
-export function resolveDefaultBranches(g: Git, exists: (n: string) => boolean, opts: DefaultBranchOptions = {}): DefaultBranches {
+export function resolveDefaultBranches(
+  g: Git,
+  exists: (n: string) => boolean,
+  opts: DefaultBranchOptions = {}
+): DefaultBranches {
   if (opts.flag?.length) return { names: opts.flag, source: "flag" }
   const cfg = fromConfig(g)
   if (cfg.length) return { names: cfg, source: "config" }

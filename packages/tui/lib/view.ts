@@ -231,16 +231,23 @@ export class GitView extends Renderable {
     const { x: ox, y: oy, width: W, height: H } = this
     const hbg = C("#1b1e25")
     const c = this.m.cs[this.hover ?? this.cur]
-    const outOfView = this.m.lanes.filter(b => visible(b) && (b.y < this.sy || b.y > this.sy + H - TOP - BOT - 1)).length
+    const outOfView = this.m.lanes.filter(b =>
+      visible(b) && (b.y < this.sy || b.y > this.sy + H - TOP - BOT - 1)).length
     // The default branch shows because the TUI has no pinning toggle: here the list is
     // always applied. The HTML has the switch, so there it is optional.
-    const defaultBranchHint = this.m.defaultBranches.length ? ` · default branch: ${this.m.defaultBranches.join(", ")}` : " · no default branch"
+    const defaultBranchHint = this.m.defaultBranches.length
+      ? ` · default branch: ${this.m.defaultBranches.join(", ")}`
+      : " · no default branch"
 
     buf.fillRect(ox, oy, W, 1, hbg)
-    buf.drawText(` gitview  ${this.m.repo}  ${this.m.N} commits · ${this.m.tipByBranch.size} branches${defaultBranchHint}${outOfView ? ` · ▼ +${outOfView} out of view` : ''}${this.anc ? "  [ancestors]" : ""}`, ox, oy, C("#d9dce3"), hbg)
+    buf.drawText(` gitview  ${this.m.repo}  ${this.m.N} commits · ${this.m.tipByBranch.size} branches${
+      defaultBranchHint}${outOfView
+      ? ` · ▼ +${outOfView} out of view`
+      : ''}${this.anc ? "  [ancestors]" : ""}`, ox, oy, C("#d9dce3"), hbg)
 
     buf.fillRect(ox, oy + H - BOT, W, BOT, hbg)
-    buf.drawText(`${c.hash.slice(0, 7)}  ${c.author}  ${c.date.slice(0, 16).replace("T", " ")}  ${c.refs.join(", ")}`, ox + 1, oy + H - 2, C("#8a919c"), hbg)
+    buf.drawText(`${c.hash.slice(0, 7)}  ${c.author}  ${c.date.slice(0, 16).replace("T", " ")}  ${c.refs.join(", ")}`,
+      ox + 1, oy + H - 2, C("#8a919c"), hbg)
     buf.drawText(`${c.subject}`.slice(0, Math.max(0, W - 2)), ox + 1, oy + H - 1, C("#e4e7ec"), hbg)
 
     const help = "click/←→↑↓ select  2×/⏎ ancestors  p merge  e export  q quit"
@@ -261,6 +268,7 @@ export class GitView extends Renderable {
     this.pscroll = Math.min(this.pscroll, Math.max(0, lines.length - vh))
     buf.fillRect(x0, y0, w, ph, pbg)
     buf.drawText(" Merge plan — ↑↓/wheel scroll · p close ", x0 + 1, y0, C("#e4e7ec"), pbg)
-    lines.slice(this.pscroll, this.pscroll + vh).forEach((l, k) => buf.drawText(l.t.slice(0, w - 4), x0 + 2, y0 + 1 + k, C(l.c), pbg))
+    lines.slice(this.pscroll, this.pscroll + vh)
+      .forEach((l, k) => buf.drawText(l.t.slice(0, w - 4), x0 + 2, y0 + 1 + k, C(l.c), pbg))
   }
 }

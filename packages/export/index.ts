@@ -30,7 +30,10 @@ export type Graph = {
     merged: 0 | 1
   }[]
   laneOf: number[]
-  /** Default branches resolved by the model and where they came from. The template uses this instead of repeating the list. */
+  /**
+   * Default branches resolved by the model and where they came from. The template uses this
+   * instead of repeating the list.
+   */
   defaultBranches: string[]
   defaultBranchSource: string
   report: Report & { matrix: Matrix | null }
@@ -47,7 +50,8 @@ export type Graph = {
  * terminal renderer holds the same live lanes and needs them to stay where they were.
  */
 export function project(g: Git, m: Model, report: Report, matrix: Matrix | null): Graph {
-  const refs = g.run(["for-each-ref", "--format=%(refname)\t%(objectname)", "refs/heads", "refs/remotes", "refs/tags"]).out
+  const refs = g.run(["for-each-ref", "--format=%(refname)\t%(objectname)", "refs/heads", "refs/remotes", "refs/tags"])
+    .out
     .split("\n").filter(Boolean)
     .map(l => { const [name, hash] = l.split("\t"); return { name, hash } })
 
@@ -85,7 +89,14 @@ export function project(g: Git, m: Model, report: Report, matrix: Matrix | null)
  * `template` swaps the built-in for a file of its own — falls back to the built-in if the
  * path does not exist, instead of failing.
  */
-export function exportHtml(g: Git, m: Model, report: Report, matrix: Matrix | null, file: string, template?: string): string {
+export function exportHtml(
+  g: Git,
+  m: Model,
+  report: Report,
+  matrix: Matrix | null,
+  file: string,
+  template?: string
+): string {
   let tpl = TPL_DAG
   if (template) {
     try { tpl = readFileSync(resolve(template), "utf8") }

@@ -19,6 +19,7 @@
     "typecheck": "tsc --noEmit",
     "lint:boundaries": "depcruise packages gitview.ts",
     "sinks": "bun script/sinks.ts",
+    "density": "bun script/line-density.ts",
     "check": "bun run sinks && bun run typecheck && bun run lint:boundaries && bun test"
   },
   "dependencies": {

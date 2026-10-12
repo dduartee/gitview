@@ -73,20 +73,24 @@ examples:
   if (!existsSync(resolve(repo))) { console.error("path not found:", repo); process.exit(1) }
 
   const g = createGit(resolve(repo))
-  if (g.run(["rev-parse", "--is-inside-work-tree"]).code) { console.error("not a git repository:", g.repo); process.exit(1) }
+  if (g.run(["rev-parse", "--is-inside-work-tree"])
+    .code) { console.error("not a git repository:", g.repo); process.exit(1) }
 
   const defaultBranchFlag = flag("--default-branch")
   let m: Model
-  try { m = buildModel(g, { defaultBranches: defaultBranchFlag ? defaultBranchFlag.split(",").map(s => s.trim()).filter(Boolean) : undefined }) }
+  try { m = buildModel(g, { defaultBranches: defaultBranchFlag
+    ? defaultBranchFlag.split(",").map(s => s.trim()).filter(Boolean) : undefined }) }
   catch (e) { console.error(e instanceof Error ? e.message : String(e)); process.exit(1) }
 
   const planner = createMergePlanner(g, m, { main: flag("--main"), dev: flag("--dev") })
 
   if (args.includes("--dump")) {
     const visibleLanes = m.lanes.filter(visible)
-    console.log(`commits: ${m.N}  lanes: ${visibleLanes.length}  refs: ${m.tipByBranch.size}  ${describeDefaultBranches({ names: m.defaultBranches, source: m.defaultBranchSource })}`)
+    console.log(`commits: ${m.N}  lanes: ${visibleLanes.length}  refs: ${m.tipByBranch.size}  ${
+      describeDefaultBranches({ names: m.defaultBranches, source: m.defaultBranchSource })}`)
     for (const b of [...visibleLanes].sort((a, b) => a.y - b.y)) {
-      console.log(`${String(b.list.length).padStart(4)}${b.tipAt !== undefined ? "*" : " "} ${b.cat.padEnd(8)} ${b.name || "(no branch)"}`)
+      console.log(`${String(b.list.length).padStart(4)}${b.tipAt !== undefined
+        ? "*" : " "} ${b.cat.padEnd(8)} ${b.name || "(no branch)"}`)
     }
     // The original dump had an `else if (b.name)` here printing "(invisible: tip outside
     // the log)". It was dead code: the filter above had already removed those lanes. Left

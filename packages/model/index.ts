@@ -14,7 +14,9 @@ import { BG, COL, mix } from "./lib/color.ts"
 import { CATEGORY_ORDER, catOf } from "./lib/category.ts"
 import { assignLanes } from "./lib/lanes.ts"
 import { DX, RH, packLanesY, measureLanes } from "./lib/layout.ts"
-import { describeDefaultBranches, isDefaultBranch, resolveDefaultBranches, type DefaultBranchSource } from "./lib/trunks.ts"
+import {
+  describeDefaultBranches, isDefaultBranch, resolveDefaultBranches, type DefaultBranchSource
+} from "./lib/trunks.ts"
 
 // `mix` and the default branches leave through the interface because the TUI and the
 // export need them, and `lib/` is private. Divergent color between renderers is a reading
@@ -178,7 +180,8 @@ function detectInactive(
     if (isDefaultBranchName(b.name)) continue
     const tip = laneTip(cs, b)
     if (!tip) continue
-    const [, ahead] = g.run(["rev-list", "--left-right", "--count", `${targetHash}...${tip}`]).out.trim().split(/\s+/).map(Number)
+    const [, ahead] = g.run(["rev-list", "--left-right", "--count", `${targetHash}...${tip}`])
+      .out.trim().split(/\s+/).map(Number)
     if (ahead === 0) inactive.add(b)
   }
   return inactive

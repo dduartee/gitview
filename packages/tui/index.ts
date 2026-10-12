@@ -20,7 +20,8 @@ export type TuiDeps = {
 }
 
 export async function startTui({ m, planner, onExport }: TuiDeps): Promise<void> {
-  const renderer = await createCliRenderer({ exitOnCtrlC: true, backgroundColor: "#14161b", useMouse: true, enableMouseMovement: true })
+  const renderer = await createCliRenderer({
+    exitOnCtrlC: true, backgroundColor: "#14161b", useMouse: true, enableMouseMovement: true })
   const view = new GitView(renderer, m, planner, onExport)
   renderer.root.add(view)
 

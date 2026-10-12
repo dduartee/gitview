@@ -10,7 +10,8 @@
 import { SIM_ENV, type Git } from "../git/index.ts"
 import { catOf, type Model } from "../model/index.ts"
 
-export type Step = { name: string; tip: string; clean: boolean; conflicts: string[]; ahead: number; behind: number; risk: string }
+export type Step =
+  { name: string; tip: string; clean: boolean; conflicts: string[]; ahead: number; behind: number; risk: string }
 
 export type BranchRow = {
   name: string
@@ -23,7 +24,10 @@ export type BranchRow = {
   merged: boolean
   files: number
   overlap: string[]
-  /** `null` when it could not be determined (old git, or a merge-tree error). `[]` when it could, and there is no conflict. */
+  /**
+   * `null` when it could not be determined (old git, or a merge-tree error). `[]` when it
+   * could, and there is no conflict.
+   */
   conflicts: string[] | null
   risk: string
   date: string
@@ -93,7 +97,8 @@ const riskOf = (merged: boolean, n: number) =>
 
 function evaluateBranch(g: Git, m: Model, r: Ref, t: Ref, exact: boolean): BranchRow {
   const base = g.run(["merge-base", t.tip, r.tip]).out.trim()
-  const [behind, ahead] = g.run(["rev-list", "--left-right", "--count", `${t.tip}...${r.tip}`]).out.trim().split(/\s+/).map(Number)
+  const [behind, ahead] = g.run(["rev-list", "--left-right", "--count", `${t.tip}...${r.tip}`])
+    .out.trim().split(/\s+/).map(Number)
   const merged = ahead === 0
 
   // diff is expensive and says nothing on an already merged branch
@@ -117,9 +122,17 @@ function evaluateBranch(g: Git, m: Model, r: Ref, t: Ref, exact: boolean): Branc
  * original target. That is why the risk of a pair changes with the order. Synthetic commits come from
  * `commit-tree`, which only creates orphan objects — no ref moves.
  */
-function planFor(g: Git, m: Model, name: string, rows: BranchRow[], refs: Ref[], exact: boolean): { name: string; steps: Step[] } {
+function planFor(
+  g: Git,
+  m: Model,
+  name: string,
+  rows: BranchRow[],
+  refs: Ref[],
+  exact: boolean
+): { name: string; steps: Step[] } {
   const target = refs.find(r => r.name === name)!
-  const pending = rows.filter(x => x.into === name && !x.merged).sort((a, b) => sizeOf(a) - sizeOf(b) || a.ahead - b.ahead)
+  const pending = rows.filter(x => x.into === name && !x.merged)
+    .sort((a, b) => sizeOf(a) - sizeOf(b) || a.ahead - b.ahead)
 
   let cursor = target.tip
   const steps: Step[] = pending.map(x => {
@@ -128,7 +141,9 @@ function planFor(g: Git, m: Model, name: string, rows: BranchRow[], refs: Ref[],
       const r = g.run(["merge-tree", "--write-tree", "--name-only", cursor, x.tip])
       if (r.code === 0) {
         clean = true; conflicts = []
-        const c = g.run(["commit-tree", r.out.split("\n")[0].trim(), "-p", cursor, "-p", x.tip, "-m", "gitview: simulation"], SIM_ENV)
+        const c = g.run(
+          ["commit-tree", r.out.split("\n")[0].trim(), "-p", cursor, "-p", x.tip, "-m", "gitview: simulation"],
+          SIM_ENV)
         if (c.code === 0) cursor = c.out.trim()
       } else if (r.code === 1) { clean = false; conflicts = parseConflicts(r.out) }
     }

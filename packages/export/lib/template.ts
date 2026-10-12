@@ -35,10 +35,31 @@ svg{display:block;width:100%;height:100%}
 #band{padding:4px 16px;color:var(--dim);font-size:11px;border-top:1px solid var(--line);min-height:22px}
 #scrollbar{height:14px;background:#10131a;border-top:1px solid var(--line);position:relative}
 #thumb{position:absolute;top:2px;height:10px;background:#3b465c;border-radius:5px;min-width:24px}
-.toolbar{padding:8px 16px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;background:var(--panel);border-bottom:1px solid var(--line);position:sticky;top:52px;z-index:2}
-button{background:#232936;color:var(--fg);border:1px solid var(--line);border-radius:6px;padding:4px 12px;font:inherit;cursor:pointer}
+.toolbar{padding:8px 16px;
+  display:flex;
+  gap:8px;
+  align-items:center;
+  flex-wrap:wrap;
+  background:var(--panel);
+  border-bottom:1px solid var(--line);
+  position:sticky;
+  top:52px;
+  z-index:2}
+button{background:#232936;
+  color:var(--fg);
+  border:1px solid var(--line);
+  border-radius:6px;
+  padding:4px 12px;
+  font:inherit;
+  cursor:pointer}
 button.on{background:#2b3550;border-color:#4c9ffe}
-input[type=search]{background:#10131a;border:1px solid var(--line);color:var(--fg);border-radius:6px;padding:4px 8px;font:inherit;width:240px}
+input[type=search]{background:#10131a;
+  border:1px solid var(--line);
+  color:var(--fg);
+  border-radius:6px;
+  padding:4px 8px;
+  font:inherit;
+  width:240px}
 section.tab{display:none;padding:12px 16px 48px}
 section.tab.on{display:block}
 table{border-collapse:collapse;width:100%;margin:6px 0}
@@ -61,7 +82,8 @@ h3{font-size:13px;margin:14px 0 2px}
 <div class="meta" id="m2"></div>
 </header>
 <div id="area">
-<div id="dag"><svg id="svg" xmlns="http://www.w3.org/2000/svg"><g id="world"><g id="ex"></g></g><g id="ey"></g></svg></div>
+<div id="dag"><svg id="svg" xmlns="http://www.w3.org/2000/svg">
+  <g id="world"><g id="ex"></g></g><g id="ey"></g></svg></div>
 <div id="colY"></div>
 </div>
 <div id="scrollbar"><div id="thumb"></div></div>
@@ -75,7 +97,9 @@ h3{font-size:13px;margin:14px 0 2px}
 <button id="b-plan">merge plan</button>
 <button id="b-matrix">conflict matrix</button>
 <button id="b-reset">reset</button>
-<span id="cnt" class="dim"><span id="sc-up" class="arrow">▲</span><span id="sc-dn" class="arrow">▼</span><span id="cnt-n"></span></span>
+<span id="cnt" class="dim"><span id="sc-up" class="arrow">▲</span>
+<span id="sc-dn" class="arrow">▼</span>
+<span id="cnt-n"></span></span>
 <span id="cnt-f" class="dim"></span>
 <span style="flex:1"></span>
 <input type="search" id="f" placeholder="filter by branch name…">
@@ -93,13 +117,18 @@ var G = window.__GRAPH__;
 if (!G || !G.commits || !G.commits.length) { document.getElementById('t').textContent = 'gitview — no data'; return }
 var COL = {main:'#4c9ffe',hotfix:'#b5b9bd',release:'#86c64a',dev:'#ffbf5e',feature:'#d9757d',other:'#b79cf0'};
 var NS = 'http://www.w3.org/2000/svg';
-function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
+function esc(s){
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')
+}
 function el(n, at){ var e = document.createElementNS(NS, n); for (var k in at) e.setAttribute(k, at[k]); return e }
 document.getElementById('t').textContent = 'gitview — ' + G.repo;
-document.getElementById('m').textContent = G.commits.length + ' commits · HEAD ' + G.head.slice(0,7) + ' · generated ' + G.report.generated.slice(0,16).replace('T',' ') + ' · ' + (G.report.exact ? 'exact conflicts (git merge-tree)' : 'estimate by shared files (git < 2.38)');
+document.getElementById('m').textContent = G.commits.length + ' commits · HEAD '
+  + G.head.slice(0,7) + ' · generated ' + G.report.generated.slice(0,16).replace('T',' ')
+  + ' · ' + (G.report.exact ? 'exact conflicts (git merge-tree)' : 'estimate by shared files (git < 2.38)');
 var SOURCE = {flag:'--default-branch', config:'.gitview.json', 'remote-head':'origin/HEAD', name:'name convention'};
 var lp = document.getElementById('lbl-pin');
-if (lp && G.defaultBranches && G.defaultBranches.length) lp.appendChild(document.createTextNode(' (' + G.defaultBranches.join(', ') + ' via ' + (SOURCE[G.defaultBranchSource] || G.defaultBranchSource) + ')'));
+if (lp && G.defaultBranches && G.defaultBranches.length) lp.appendChild(document.createTextNode(' ('
+  + G.defaultBranches.join(', ') + ' via ' + (SOURCE[G.defaultBranchSource] || G.defaultBranchSource) + ')'));
 var lanes = G.lanes.filter(function(l){ return l.name || l.listLen });
 var lane = {};
 for (var i = 0; i < lanes.length; i++) lane[lanes[i].name || '#' + i] = true;
@@ -123,7 +152,10 @@ function shortName(rn) {                                       // refs/heads/x, 
 }
 var refByHash = {};
 var rf = G.refs || [];
-for (i = 0; i < rf.length; i++) { if (rf[i].name.indexOf('refs/tags/') === 0) continue; refByHash[rf[i].hash] = rf[i].name }
+for (i = 0; i < rf.length; i++) {
+  if (rf[i].name.indexOf('refs/tags/') === 0) continue;
+  refByHash[rf[i].hash] = rf[i].name
+}
 var laneEls = [];
 var used = {};
 for (i = 0; i < lanes.length; i++) {
@@ -144,7 +176,9 @@ for (i = 0; i < branches.length; i++) conflicts[branches[i].name] = branches[i];
 function chk(id){ return document.getElementById(id).checked }
 function pastel(hex, f){                                   // desaturated color toward the background (low contrast = inactive)
   var g = f || .3, a = parseInt(hex.slice(1), 16), b = 0x14161b;
-  return '#' + [16, 8, 0].map(function (s) { return Math.round(((a >> s) & 255) * g + ((b >> s) & 255) * (1 - g)).toString(16).padStart(2, '0') }).join('');
+  return '#' + [16, 8, 0].map(function (s) {
+    return Math.round(((a >> s) & 255) * g + ((b >> s) & 255) * (1 - g)).toString(16).padStart(2, '0')
+  }).join('');
 }
 function active(name){ if (!name) return false; var r = conflicts[name]; return r ? (!r.merged && r.ahead > 0) : true }
 function laneColor(cat, name){ var c = COL[cat] || '#9aa3b2'; return active(name) ? c : pastel(c) }
@@ -156,7 +190,8 @@ function arrowhead(x, y, dx, dy, fill){
   var tx = x - dx * back, ty = y - dy * back;             // tip
   var bx = tx - dx * len, by = ty - dy * len;             // base centre
   var nx = -dy, ny = dx;                                  // perpendicular (dx, dy) is unit
-  return el('polygon', {points: tx+','+ty+' '+(bx+nx*half)+','+(by+ny*half)+' '+(bx-nx*half)+','+(by-ny*half), fill:fill});
+  return el('polygon', {points: tx+','+ty+' '+(bx+nx*half)+','+(by+ny*half)+' '+(bx-nx*half)+','+(by-ny*half),
+    fill:fill});
 }
 // Default branches come from the model (G.defaultBranches), resolved by --default-branch /
 // .gitview.json / origin/HEAD / name convention. This list is NOT repeated here on purpose:
@@ -174,8 +209,10 @@ for (i = 0; i < G.commits.length; i++) {
     var lp2 = lanes[G.laneOf[p] < 0 ? 0 : G.laneOf[p]];
     var col = same ? laneColor(lanes[lo].cat, lanes[lo].name) : (second ? laneColor(lp2.cat, lp2.name) : '#4a5262');
     var e;
-    if (py === y) e = el('line', {x1:px, y1:py, x2:x, y2:y, stroke:col, 'stroke-width':same || second ? 2 : 1.4, 'stroke-dasharray':same?'':'3 3'});
-    else e = el('polyline', {points:px+','+py+' '+x+','+py+' '+x+','+y, fill:'none', stroke:col, 'stroke-width':second ? 2 : 1.4, 'stroke-dasharray':'3 3'});
+    if (py === y) e = el('line', {x1:px, y1:py, x2:x, y2:y, stroke:col,
+      'stroke-width':same || second ? 2 : 1.4, 'stroke-dasharray':same?'':'3 3'});
+    else e = el('polyline', {points:px+','+py+' '+x+','+py+' '+x+','+y, fill:'none',
+      stroke:col, 'stroke-width':second ? 2 : 1.4, 'stroke-dasharray':'3 3'});
     // A cross-lane edge is a merge or a fork: it gets an arrowhead in the colour of the lane
     // it links to. A same-lane edge is a solid line and carries no arrow.
     var painted = e;
@@ -196,12 +233,17 @@ for (i = 0; i < G.commits.length; i++) {
   var ln = lanes[lo2], col2 = laneColor(ln.cat, ln.name);
   var isHead = c2.hash === G.head;
   var merge = c2.parents.length > 1 && chk('tg-merge');
-  var n = el('circle', {cx:x2, cy:y2, r:merge ? 8 : 4, fill:merge ? 'none' : col2, stroke:merge ? col2 : (isHead ? '#fff' : 'none'), 'stroke-width':merge ? 2.5 : (isHead ? 1.5 : 0)});
+  var n = el('circle', {cx:x2, cy:y2, r:merge ? 8 : 4, fill:merge ? 'none' : col2,
+    stroke:merge ? col2 : (isHead ? '#fff' : 'none'), 'stroke-width':merge ? 2.5 : (isHead ? 1.5 : 0)});
   var t = el('title');
-  var txt = c2.hash.slice(0,7) + '  ' + c2.subject + '  [' + c2.author + ' · ' + c2.date.slice(0,16).replace('T',' ') + (c2.refs.length ? ' · ' + c2.refs.join(' | ') : '') + ']';
+  var txt = c2.hash.slice(0,7) + '  ' + c2.subject + '  [' + c2.author + ' · '
+    + c2.date.slice(0,16).replace('T',' ') + (c2.refs.length ? ' · ' + c2.refs.join(' | ') : '') + ']';
   if (merge) {
     txt += '  ||  MERGE of:';
-    for (var mp = 0; mp < c2.parents.length; mp++) { var pl = lanes[G.laneOf[idx[c2.parents[mp]] < 0 ? 0 : (idx[c2.parents[mp]] || 0)]]; txt += '  ' + c2.parents[mp].slice(0, 7) + ' (' + (pl ? pl.name : '?') + ')' }
+    for (var mp = 0; mp < c2.parents.length; mp++) {
+      var pl = lanes[G.laneOf[idx[c2.parents[mp]] < 0 ? 0 : (idx[c2.parents[mp]] || 0)]];
+      txt += '  ' + c2.parents[mp].slice(0, 7) + ' (' + (pl ? pl.name : '?') + ')'
+    }
   }
   t.textContent = txt; n.appendChild(t); world.appendChild(n);
   laneEls[lo2].nodes.push(n);
@@ -209,7 +251,11 @@ for (i = 0; i < G.commits.length; i++) {
     var mb = el('text', {x:x2 - 15, y:y2 - 15, fill:'#e3b341', 'font-size':9});
     mb.appendChild(document.createTextNode('merge')); world.appendChild(mb);
   }
-  if (isHead) { var ht = el('text', {x:x2+8, y:y2-8, fill:'#fff', 'font-size':10}); ht.appendChild(document.createTextNode('HEAD')); world.appendChild(ht) }
+  if (isHead) {
+    var ht = el('text', {x:x2+8, y:y2-8, fill:'#fff', 'font-size':10});
+    ht.appendChild(document.createTextNode('HEAD'));
+    world.appendChild(ht)
+  }
 }
 // dynamic X axis: only the visible band, minimum spacing of 130px (never overlaps)
 function drawXAxis(){
@@ -225,10 +271,12 @@ function drawXAxis(){
     var gx = ML + i * CW;
     if (gx - lastX < 130) continue;
     lastX = gx;
-    ex.appendChild(el('line', {x1:gx, y1:MT - 8, x2:gx, y2:MT + (maxY + 2) * ROW + 6, stroke:'#262c38', 'stroke-width':1}));
+    ex.appendChild(el('line', {x1:gx, y1:MT - 8, x2:gx, y2:MT + (maxY + 2) * ROW + 6, stroke:'#262c38',
+      'stroke-width':1}));
     var d = G.commits[i].date;
     var tk = el('text', {x:gx + 4, y:MT - 14, fill:'#6b7280', 'font-size':10});
-    tk.appendChild(document.createTextNode((fmt === 0 ? d.slice(0, 4) : fmt === 1 ? d.slice(0, 7) : d.slice(0, 10)) + '  ·' + i));
+    tk.appendChild(document.createTextNode((fmt === 0 ? d.slice(0, 4) : fmt === 1 ? d.slice(0, 7) : d.slice(0, 10))
+      + '  ·' + i));
     ex.appendChild(tk);
   }
 }
@@ -238,7 +286,8 @@ for (i = 0; i < G.commits.length; i++) {
   for (j = 0; j < rfs2.length; j++) if (rfs2[j].slice(0, 5) === 'tag: ') tg2.push(rfs2[j].slice(5));
   if (!tg2.length) continue;
   var txx = ML + i * CW;
-  world.appendChild(el('line', {x1:txx, y1:MT - 34, x2:txx, y2:MT - 8, stroke:'#3a4150', 'stroke-width':1, 'stroke-dasharray':'2 2'}));
+  world.appendChild(el('line', {x1:txx, y1:MT - 34, x2:txx, y2:MT - 8, stroke:'#3a4150', 'stroke-width':1,
+    'stroke-dasharray':'2 2'}));
   var tt2 = el('text', {x:txx + 4, y:MT - 38, fill:'#e3b341', 'font-size':10});
   tt2.appendChild(document.createTextNode(tg2.join(',')));
   world.appendChild(tt2);
@@ -248,43 +297,84 @@ for (i = 0; i < lanes.length; i++) {
   var l = lanes[i]; if (!l.name && !l.listLen) continue;
   var lc2 = laneColor(l.cat, l.name);
   var yl = laneY(i);
-  var gu = el('line', {x1:ML - 6, y1:yl + ROW / 2, x2:ML + (l.x1 + 2) * CW, y2:yl + ROW / 2, stroke:lc2, 'stroke-width':1, opacity:.14});
+  var gu = el('line', {x1:ML - 6, y1:yl + ROW / 2, x2:ML + (l.x1 + 2) * CW, y2:yl + ROW / 2,
+    stroke:lc2, 'stroke-width':1, opacity:.14});
   world.appendChild(gu); laneEls[i].guide = gu;
   var lab = el('text', {x:ML + (l.x1 + 1) * CW + 10, y:yl + ROW / 2 + 4, fill:lc2, 'font-size':12});
   var nmLab = l.name || ('(no branch ' + (G.commits[l.x1] ? G.commits[l.x1].hash.slice(0, 3) : '?') + ')');
   lab.appendChild(document.createTextNode(nmLab.length > 30 ? nmLab.slice(0, 29) + '…' : nmLab));
-  if (!active(nmLab)) { var li2 = el('tspan', {fill:'#5b6470', 'font-size':10}); li2.appendChild(document.createTextNode('  ·inactive')); lab.appendChild(li2) }
+  if (!active(nmLab)) {
+    var li2 = el('tspan', {fill:'#5b6470', 'font-size':10});
+    li2.appendChild(document.createTextNode('  ·inactive'));
+    lab.appendChild(li2)
+  }
   var tipLab = G.commits[l.x1];
-  if (tipLab && chk('tg-hash')) { var lh = el('tspan', {fill:'#8a919c', 'font-size':10}); lh.appendChild(document.createTextNode(' #' + tipLab.hash.slice(0, 7))); lab.appendChild(lh) }
+  if (tipLab && chk('tg-hash')) {
+    var lh = el('tspan', {fill:'#8a919c', 'font-size':10});
+    lh.appendChild(document.createTextNode(' #' + tipLab.hash.slice(0, 7)));
+    lab.appendChild(lh)
+  }
   var cfL = conflicts[nmLab];
-  if (cfL && !cfL.merged) { var ncl = (cfL.conflicts || cfL.overlap || []).length; if (ncl) { var lw = el('tspan', {fill:'#f0883e', 'font-size':10}); lw.appendChild(document.createTextNode('  ⚠' + ncl)); lab.appendChild(lw) } }
-  var tl = el('title'); tl.textContent = (l.name || '(no branch)') + ' (' + l.cat + ') · ' + l.listLen + ' commits' + (l.branchless ? ' · no own branch' : '') + (l.merged ? ' · already merged' : ''); lab.appendChild(tl);
+  if (cfL && !cfL.merged) {
+    var ncl = (cfL.conflicts || cfL.overlap || []).length;
+    if (ncl) {
+      var lw = el('tspan', {fill:'#f0883e', 'font-size':10});
+      lw.appendChild(document.createTextNode('  ⚠' + ncl));
+      lab.appendChild(lw)
+    }
+  }
+  var tl = el('title');
+  tl.textContent = (l.name || '(no branch)') + ' (' + l.cat + ') · ' + l.listLen + ' commits'
+    + (l.branchless ? ' · no own branch' : '') + (l.merged ? ' · already merged' : '');
+  lab.appendChild(tl);
   world.appendChild(lab); laneEls[i].label = lab;
   var nm = l.name || ('(no branch ' + (G.commits[l.x1] ? G.commits[l.x1].hash.slice(0, 3) : '?') + ')');
   var pinL = chk('tg-pin') && !l.branchless && TRUNK.indexOf(l.name) >= 0;
   var hit = el('rect', {x:0, y:0, width:ML - 14, height:ROW, fill:'transparent', cursor:'pointer', 'data-lane':i});
   hit.setAttribute('data-y', yl + ROW / 2); hit.setAttribute('data-pin', pinL ? '1' : '0');
-  var eyn = el('text', {x:10, y:0, fill:l.branchless ? '#8a919c' : lc2, 'font-size':12, cursor:'pointer', 'data-lane':i, 'paint-order':'stroke', stroke:'#14161b', 'stroke-width':3});
+  var eyn = el('text', {x:10, y:0, fill:l.branchless ? '#8a919c' : lc2, 'font-size':12, cursor:'pointer',
+    'data-lane':i, 'paint-order':'stroke', stroke:'#14161b', 'stroke-width':3});
   eyn.setAttribute('data-y', yl + ROW / 2 + 4); eyn.setAttribute('data-pin', pinL ? '1' : '0');
   if (l.branchless) eyn.setAttribute('opacity', .55);
   eyn.appendChild(document.createTextNode(nm.length > 26 ? nm.slice(0, 25) + '…' : nm));
   var tipE = G.commits[l.x1];
-  if (tipE && chk('tg-hash')) { var hh = el('tspan', {fill:'#6b7280', 'font-size':10}); hh.appendChild(document.createTextNode(' #' + tipE.hash.slice(0, 7))); eyn.appendChild(hh) }
-  if (l.merged) { var ms = el('tspan', {fill:'#3fb950', 'font-size':10}); ms.appendChild(document.createTextNode(' ✓merged')); eyn.appendChild(ms) }
+  if (tipE && chk('tg-hash')) {
+    var hh = el('tspan', {fill:'#6b7280', 'font-size':10});
+    hh.appendChild(document.createTextNode(' #' + tipE.hash.slice(0, 7)));
+    eyn.appendChild(hh)
+  }
+  if (l.merged) {
+    var ms = el('tspan', {fill:'#3fb950', 'font-size':10});
+    ms.appendChild(document.createTextNode(' ✓merged'));
+    eyn.appendChild(ms)
+  }
   var cf = conflicts[nm];
   if (cf && !cf.merged) {
     var ncf = (cf.conflicts || cf.overlap || []).length;
-    if (ncf) { var sp = el('tspan', {fill:'#f0883e', 'font-size':10}); sp.appendChild(document.createTextNode('  ⚠' + ncf)); eyn.appendChild(sp) }
+    if (ncf) {
+      var sp = el('tspan', {fill:'#f0883e', 'font-size':10});
+      sp.appendChild(document.createTextNode('  ⚠' + ncf));
+      eyn.appendChild(sp)
+    }
   }
-  var te = el('title'); te.textContent = nm + ' (' + l.cat + ') · ' + l.listLen + ' commits' + (l.branchless ? ' · no own branch' : '') + (l.merged ? ' · already merged' : '') + ' · click = zoom to lane'; eyn.appendChild(te);
+  var te = el('title');
+  te.textContent = nm + ' (' + l.cat + ') · ' + l.listLen + ' commits' + (l.branchless ? ' · no own branch' : '')
+    + (l.merged ? ' · already merged' : '') + ' · click = zoom to lane';
+  eyn.appendChild(te);
   hit.addEventListener('click', function (ev) { zoomLane(+ev.currentTarget.getAttribute('data-lane')) });
   eyn.addEventListener('click', function (ev) { zoomLane(+ev.currentTarget.getAttribute('data-lane')) });
   ey.appendChild(hit); ey.appendChild(eyn); laneEls[i].eylabel = eyn;
 }
 // auditable topological fidelity in the header
 var parents = 0, edges = 0;
-for (var pi = 0; pi < G.commits.length; pi++) { var pp2 = G.commits[pi].parents; parents += pp2.length; for (var pj = 0; pj < pp2.length; pj++) if (idx[pp2[pj]] !== undefined) edges++ }
-document.getElementById('m2').textContent = 'parents ' + parents + ' · edges ' + edges + (parents === edges ? ' · topology closes' : ' · WARNING: parents outside the log') + ' · lanes ' + lanes.length + ' · refs ' + (G.refs || []).length;
+for (var pi = 0; pi < G.commits.length; pi++) {
+  var pp2 = G.commits[pi].parents;
+  parents += pp2.length;
+  for (var pj = 0; pj < pp2.length; pj++) if (idx[pp2[pj]] !== undefined) edges++
+}
+document.getElementById('m2').textContent = 'parents ' + parents + ' · edges ' + edges
+  + (parents === edges ? ' · topology closes' : ' · WARNING: parents outside the log')
+  + ' · lanes ' + lanes.length + ' · refs ' + (G.refs || []).length;
 var sc = 1, tx = 16, ty = 8, drag = null, dag = document.getElementById('dag');
 var headIdx = idx[G.head] !== undefined ? idx[G.head] : G.commits.length - 1;
 function syncEY() {                                            // Y axis: only visible; pinned always; arrows with counter
@@ -321,7 +411,12 @@ function goToLane(dir){                                      // arrow brings the
   ty += (dir < 0 ? 50 : h - 50) - target;
   apply();
 }
-function apply(){ world.setAttribute('transform', 'translate(' + tx + ',' + ty + ') scale(' + sc + ')'); syncEY(); drawXAxis(); updateScroll() }
+function apply(){
+  world.setAttribute('transform', 'translate(' + tx + ',' + ty + ') scale(' + sc + ')');
+  syncEY();
+  drawXAxis();
+  updateScroll()
+}
 function updateScroll(){                                    // bottom bar: proportional position + width
   var thumb = document.getElementById('thumb'), bar = document.getElementById('scrollbar');
   if (!thumb || !bar || !bar.clientWidth) return;
@@ -345,15 +440,18 @@ function zoomLane(li) {                                        // click on the Y
   var l = lanes[li]; if (!l) return;
   var cx = ML + (l.x0 + l.x1) / 2 * CW, cy = laneY(li) + ROW / 2;
   var vw = dag.clientWidth, vh = dag.clientHeight;
-  sc = Math.max(0.4, Math.min(3, Math.min(vw / Math.max(400, (l.x1 - l.x0) * CW + 300), vh / Math.max(300, (maxY + 1) * ROW + 80))));
+  sc = Math.max(0.4, Math.min(3, Math.min(vw / Math.max(400, (l.x1 - l.x0) * CW + 300),
+    vh / Math.max(300, (maxY + 1) * ROW + 80))));
   tx = vw / 2 - cx * sc; ty = vh / 2 - cy * sc;
   apply();
-  if (history.replaceState) history.replaceState(null, '', '#lane=' + encodeURIComponent(l.name || '') + '&z=' + sc.toFixed(2));
+  if (history.replaceState) history.replaceState(null, '', '#lane=' + encodeURIComponent(l.name || '')
+    + '&z=' + sc.toFixed(2));
 }
 var hadState = (function restore(){                        // UI state (toggles + view) in sessionStorage
   try {
     var sv = JSON.parse(sessionStorage.getItem('gitview-ui') || '{}');
-    ['tg-ey','tg-pin','tg-hash','tg-branchless','tg-merge'].forEach(function(id7){ if (sv[id7] !== undefined) document.getElementById(id7).checked = sv[id7] });
+    ['tg-ey','tg-pin','tg-hash','tg-branchless','tg-merge']
+      .forEach(function(id7){ if (sv[id7] !== undefined) document.getElementById(id7).checked = sv[id7] });
     if (sv.tx !== undefined) { tx = sv.tx; ty = sv.ty; sc = sv.sc; return true }
   } catch (e2) {}
   return false
@@ -370,12 +468,25 @@ function applyHash(){
 window.addEventListener('load', function(){                     // on load, hash rules; without hash, HEAD
   if (!applyHash()) fitTo(headIdx, G.laneOf[headIdx])
 });
-dag.addEventListener('pointerdown', function(e){ drag = {x:e.clientX, y:e.clientY, tx:tx, ty:ty}; dag.setPointerCapture(e.pointerId) });
-dag.addEventListener('pointermove', function(e){ if (!drag) return; tx = drag.tx + (e.clientX - drag.x); ty = drag.ty + (e.clientY - drag.y); apply() });
+dag.addEventListener('pointerdown',
+  function(e){ drag = {x:e.clientX, y:e.clientY, tx:tx, ty:ty}; dag.setPointerCapture(e.pointerId) });
+dag.addEventListener('pointermove',
+  function(e){ if (!drag) return; tx = drag.tx + (e.clientX - drag.x); ty = drag.ty + (e.clientY - drag.y); apply() });
 dag.addEventListener('pointerup', function(){ drag = null });
-dag.addEventListener('wheel', function(e){ e.preventDefault(); var r = dag.getBoundingClientRect(); var mx = e.clientX - r.left, my = e.clientY - r.top; var k = e.deltaY < 0 ? 1.15 : 1/1.15; var ns = Math.max(.6, Math.min(4, sc * k)); tx = mx - (mx - tx) * ns / sc; ty = my - (my - ty) * ns / sc; sc = ns; apply() }, {passive:false});
+dag.addEventListener('wheel', function(e){
+  e.preventDefault();
+  var r = dag.getBoundingClientRect();
+  var mx = e.clientX - r.left, my = e.clientY - r.top;
+  var k = e.deltaY < 0 ? 1.15 : 1/1.15;
+  var ns = Math.max(.6, Math.min(4, sc * k));
+  tx = mx - (mx - tx) * ns / sc;
+  ty = my - (my - ty) * ns / sc;
+  sc = ns;
+  apply()
+}, {passive:false});
 dag.addEventListener('dblclick', function(){ fitTo(headIdx, G.laneOf[headIdx]) });
-var bReset = document.getElementById('b-reset'); if (bReset) bReset.onclick = function(){ fitTo(headIdx, G.laneOf[headIdx]) };
+var bReset = document.getElementById('b-reset');
+if (bReset) bReset.onclick = function(){ fitTo(headIdx, G.laneOf[headIdx]) };
 document.addEventListener('keydown', function(ev){                 // keyboard zoom: + and -
   var f = (ev.key === '+' || ev.key === '=') ? 1.3 : (ev.key === '-' || ev.key === '_') ? 1 / 1.3 : 0;
   if (!f) return;
@@ -387,16 +498,25 @@ applyHash();                                                    // early paint o
 
 // ── tabs: refs · plan · matrix ──
 var TABS = ['refs', 'plan', 'matrix'];
-function tab(id){ TABS.forEach(function(k){ document.getElementById('t-' + k).classList.toggle('on', k === id); document.getElementById('b-' + k).classList.toggle('on', k === id) }) }
+function tab(id){
+  TABS.forEach(function(k){
+    document.getElementById('t-' + k).classList.toggle('on', k === id);
+    document.getElementById('b-' + k).classList.toggle('on', k === id)
+  })
+}
 TABS.forEach(function(k){ document.getElementById('b-' + k).onclick = function(){ tab(k); applyFilter(lastQ) } });
 function cls(b){ return b.merged ? 'ok' : ((b.conflicts || b.overlap || []).length ? 'warn' : 'ok') }
-var h = '<table><thead><tr><th>branch (real name)</th><th>cat</th><th>+ahead/-behind</th><th>merges into</th><th>risk</th><th>state</th></tr></thead><tbody>';
+var h =
+  '<table><thead><tr><th>branch (real name)</th><th>cat</th><th>+ahead/-behind</th><th>merges into</th><th>risk</th><th>state</th></tr></thead><tbody>';
 G.report.branches.forEach(function(b){
-  h += '<tr><td>' + esc(b.name) + '</td><td>' + esc(b.cat) + '</td><td>+' + b.ahead + '/-' + b.behind + '</td><td>' + esc(b.into) + '</td><td class="' + cls(b) + '">' + esc(b.risk) + '</td><td>' + (b.merged ? 'merged' : 'open') + '</td></tr>';
+  h += '<tr><td>' + esc(b.name) + '</td><td>' + esc(b.cat) + '</td><td>+' + b.ahead + '/-' + b.behind
+    + '</td><td>' + esc(b.into) + '</td><td class="' + cls(b) + '">' + esc(b.risk) + '</td><td>'
+    + (b.merged ? 'merged' : 'open') + '</td></tr>';
 });
 h += '</tbody></table>';
 var done = G.report.branches.filter(function(b){ return b.merged });
-h += '<p class="dim">already merged (' + done.length + '): ' + done.map(function(b){ return esc(b.name) }).join(', ') + '</p>';
+h += '<p class="dim">already merged (' + done.length + '): '
+  + done.map(function(b){ return esc(b.name) }).join(', ') + '</p>';
 var rowNames = {};
 G.report.branches.forEach(function (b) { rowNames[b.name] = true });
 var mergeTargets = [];
@@ -405,18 +525,24 @@ for (var ri = 0; ri < rf3.length; ri++) {
   var nn = shortName(rf3[ri].name);
   if (!rowNames[nn] && mergeTargets.indexOf(nn) < 0) mergeTargets.push(nn);
 }
-if (mergeTargets.length) h += '<p class="dim">merge targets (merge into nobody): ' + mergeTargets.map(esc).join(', ') + '</p>';
+if (mergeTargets.length) h += '<p class="dim">merge targets (merge into nobody): '
+  + mergeTargets.map(esc).join(', ') + '</p>';
 document.getElementById('t-refs').innerHTML = h;
 
 var hp = '';
 if (!G.report.targets.length) hp = '<p class="dim">no pending merge.</p>';
 G.report.targets.forEach(function(t){
-  hp += '<h3>→ ' + esc(t.name) + ' <span class="dim">(' + t.steps.length + ' to merge, in the suggested order)</span></h3>';
+  hp += '<h3>→ ' + esc(t.name) + ' <span class="dim">(' + t.steps.length
+    + ' to merge, in the suggested order)</span></h3>';
   hp += '<table><thead><tr><th>#</th><th>branch</th><th></th><th>+/-</th><th>risk</th></tr></thead><tbody>';
   t.steps.forEach(function(s, i2){
-    hp += '<tr><td>' + (i2 + 1) + '</td><td>' + esc(s.name) + '</td><td class="' + (s.clean ? 'ok' : 'warn') + '">' + (s.clean ? 'clean' : s.conflicts.length + ' conflict(s)') + '</td><td>+' + s.ahead + '/-' + s.behind + '</td><td class="' + (s.risk === 'high' ? 'warn' : 'ok') + '">' + esc(s.risk) + '</td></tr>';
-    s.conflicts.slice(0, 8).forEach(function(f){ hp += '<tr><td></td><td colspan="4" class="files">' + esc(f) + '</td></tr>' });
-    if (s.conflicts.length > 8) hp += '<tr><td></td><td colspan="4" class="files">… +' + (s.conflicts.length - 8) + '</td></tr>';
+    hp += '<tr><td>' + (i2 + 1) + '</td><td>' + esc(s.name) + '</td><td class="' + (s.clean ? 'ok' : 'warn') + '">'
+      + (s.clean ? 'clean' : s.conflicts.length + ' conflict(s)') + '</td><td>+' + s.ahead + '/-' + s.behind
+      + '</td><td class="' + (s.risk === 'high' ? 'warn' : 'ok') + '">' + esc(s.risk) + '</td></tr>';
+    s.conflicts.slice(0, 8)
+      .forEach(function(f){ hp += '<tr><td></td><td colspan="4" class="files">' + esc(f) + '</td></tr>' });
+    if (s.conflicts.length > 8) hp += '<tr><td></td><td colspan="4" class="files">… +'
+      + (s.conflicts.length - 8) + '</td></tr>';
   });
   hp += '</tbody></table>';
 });
@@ -434,14 +560,16 @@ else {
     MX.names.forEach(function(_, j2){
       if (i2 === j2) { hm += '<td class="dim">·</td>'; return }
       var cell = MX.cells[i2][j2] || [];
-      hm += cell.length ? '<td class="warn" title="' + esc(cell.join(' · ')) + '">✗' + cell.length + '</td>' : '<td class="ok">✓</td>';
+      hm += cell.length ? '<td class="warn" title="' + esc(cell.join(' · ')) + '">✗'
+        + cell.length + '</td>' : '<td class="ok">✓</td>';
     });
     hm += '</tr>';
   });
   hm += '</tbody></table>';
   var open = 0;
   for (var ai = 0; ai < (G.report.branches || []).length; ai++) if (!G.report.branches[ai].merged) open++;
-  if (open > MX.names.length) hm += '<p class="dim">matrix limited to the ' + MX.names.length + ' most recent open branches (of ' + open + ')</p>';
+  if (open > MX.names.length) hm += '<p class="dim">matrix limited to the ' + MX.names.length
+    + ' most recent open branches (of ' + open + ')</p>';
 }
 document.getElementById('t-matrix').innerHTML = hm;
 
@@ -475,8 +603,12 @@ document.getElementById('f').addEventListener('input', function (e) { applyFilte
 // branchless band + toggles + Y axis arrows
 function branchlessBand(){
   var nBranchless = 0, cBranchless = 0, q3;
-  for (q3 = 0; q3 < lanes.length; q3++) if (lanes[q3].branchless) { nBranchless++; cBranchless += lanes[q3].listLen || 0 }
-  document.getElementById('band').textContent = chk('tg-branchless') && nBranchless ? (nBranchless + ' branchless lanes (' + cBranchless + ' commits) — sides of merges from deleted branches; they stay in the graph in grey and leave the Y axis when out of view') : '';
+  for (q3 = 0; q3 < lanes.length; q3++) if (lanes[q3].branchless) {
+    nBranchless++;
+    cBranchless += lanes[q3].listLen || 0
+  }
+  document.getElementById('band').textContent = chk('tg-branchless')
+    && nBranchless ? (nBranchless + ' branchless lanes (' + cBranchless + ' commits) — sides of merges from deleted branches; they stay in the graph in grey and leave the Y axis when out of view') : '';
 }
 branchlessBand();
 function renderColY(){                                        // fixed axis: own column with scroll (all lanes)
@@ -490,14 +622,16 @@ function renderColY(){                                        // fixed axis: own
     if (!l2.name && !l2.listLen) continue;
     var nm2 = l2.name || ('(no branch ' + (G.commits[l2.x1] ? G.commits[l2.x1].hash.slice(0, 3) : '?') + ')');
     var lc2 = COL[l2.cat] || '#b79cf0';
-    h += '<div class="cy" data-lane="' + li + '" style="color:' + (l2.branchless ? '#8a919c' : lc2) + '">' + (nm2.length > 30 ? nm2.slice(0, 29) + '…' : nm2);
+    h += '<div class="cy" data-lane="' + li + '" style="color:' + (l2.branchless ? '#8a919c' : lc2)
+      + '">' + (nm2.length > 30 ? nm2.slice(0, 29) + '…' : nm2);
     if (G.commits[l2.x1]) h += ' <span style="color:#6b7280">#' + G.commits[l2.x1].hash.slice(0, 7) + '</span>';
     if (l2.merged) h += ' <span style="color:#3fb950">✓merged</span>';
     h += '</div>';
   }
   colY.innerHTML = h;
   var rows = colY.querySelectorAll('.cy');
-  for (var r = 0; r < rows.length; r++) rows[r].addEventListener('click', function (ev) { zoomLane(+ev.currentTarget.getAttribute('data-lane')) });
+  for (var r = 0; r < rows.length; r++) rows[r].addEventListener('click',
+    function (ev) { zoomLane(+ev.currentTarget.getAttribute('data-lane')) });
 }
 renderColY();
 var su = document.getElementById('sc-up'), sd = document.getElementById('sc-dn');
@@ -506,7 +640,8 @@ if (sd) sd.onclick = function(){ goToLane(1) };
 ['tg-ey','tg-pin','tg-hash','tg-branchless','tg-merge'].forEach(function(id8){
   document.getElementById(id8).addEventListener('change', function(){
     var sv2 = {tx:tx, ty:ty, sc:sc};
-    ['tg-ey','tg-pin','tg-hash','tg-branchless','tg-merge'].forEach(function(id9){ sv2[id9] = document.getElementById(id9).checked });
+    ['tg-ey','tg-pin','tg-hash','tg-branchless','tg-merge']
+      .forEach(function(id9){ sv2[id9] = document.getElementById(id9).checked });
     sessionStorage.setItem('gitview-ui', JSON.stringify(sv2));
     location.reload();
   });
