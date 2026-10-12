@@ -10,7 +10,7 @@ import { describe, expect, test } from "bun:test"
 import { createFakeGit, logOutput } from "../../git/fake.ts"
 import { buildModel, visible } from "../../model/index.ts"
 import { createMergePlanner } from "../../merge/index.ts"
-import { project } from "../index.ts"
+import { project, snapshot, type Snapshot } from "../index.ts"
 
 const RESP = {
   "log --all": {
@@ -84,5 +84,35 @@ describe("the projection uses reindexed y, without touching the model", () => {
     const graph = project(g, m, planner.getReport(), planner.getMatrix())
     const modelOrder = m.lanes.filter(visible).sort((a, b) => a.y - b.y).map(b => b.name)
     expect(graph.lanes.map(l => l.name)).toEqual(modelOrder)
+  })
+})
+
+describe("the snapshot survives JSON", () => {
+  test("the maps are entries, not the `{}` JSON.stringify gives a Map", () => {
+    const { m, planner } = build()
+    const snap = snapshot(m, planner.getReport(), planner.getMatrix())
+    const back = JSON.parse(JSON.stringify(snap)) as Snapshot
+
+    expect(back.idx.length).toBe(m.idx.size)
+    expect(back.byHash.length).toBe(m.byHash.size)
+    expect(back.tipByBranch.length).toBe(m.tipByBranch.size)
+    expect(back.lanes.length).toBe(m.lanes.length)
+    expect(back.cs.length).toBe(m.cs.length)
+    expect(back.tipByBranch).toEqual([...m.tipByBranch])
+  })
+
+  test("it carries every prop the terminal renderer reads", () => {
+    const { m, planner } = build()
+    const s = snapshot(m, planner.getReport(), planner.getMatrix())
+
+    // the list is the renderer itself: add a prop there and this test fails
+    for (const prop of ["repo", "headHash", "cs", "N", "lanes", "idx", "byHash", "tipByBranch",
+      "X", "Y", "MAXY", "labels", "defaultBranches"] as const) {
+      expect(s[prop]).toEqual(expect.anything())
+    }
+    expect(s.plan.length).toBeGreaterThan(0)
+    expect(s.report.branches).toEqual(expect.any(Array))
+    expect(s.X.length).toBe(m.N)
+    expect(s.Y.length).toBe(m.N)
   })
 })

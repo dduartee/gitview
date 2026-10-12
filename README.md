@@ -98,6 +98,7 @@ gitview .fixtures/complex --export graph.html
 gitview                      # graph of the current repo
 gitview /path/to/repo        # graph of another repo
 gitview --dump               # prints the lane model (debug, no UI)
+gitview --json model.json    # everything the renderers consume, for a test harness
 gitview --export graph.html  # exports the self-contained HTML
 gitview --help               # all options (--main, --dev, --template, …)
 ```

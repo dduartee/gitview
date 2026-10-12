@@ -12,13 +12,13 @@ import { basename, resolve } from "node:path"
 import { createGit } from "./packages/git/index.ts"
 import { visible, buildModel, describeDefaultBranches, type Model } from "./packages/model/index.ts"
 import { createMergePlanner } from "./packages/merge/index.ts"
-import { exportHtml } from "./packages/export/index.ts"
+import { exportHtml, exportJson } from "./packages/export/index.ts"
 import { startTui } from "./packages/tui/index.ts"
 
 const VERSION = "1.2"
 
 /** Flags that consume the next argument. The value can't be read as a repo. */
-const VALUED = new Set(["--export", "--template", "--main", "--dev", "--default-branch"])
+const VALUED = new Set(["--export", "--json", "--template", "--main", "--dev", "--default-branch"])
 
 const args = process.argv.slice(2)
 const flag = (n: string) => { const i = args.indexOf(n); return i >= 0 ? args[i + 1] : undefined }
@@ -48,6 +48,7 @@ usage: gitview [repo] [options]
 
 options:
   --export <file.html>      export self-contained HTML graph (DAG + refs + plan + matrix)
+  --json <file.json>        export everything the renderers consume, for a test harness
   --template <file.html>    use your own template; falls back to built-in if missing
   --main <branch>           main branch of the merge plan (default: autodetect)
   --dev <branch>            development branch (default: autodetect)
@@ -101,11 +102,15 @@ examples:
   // Report and matrix are the same for every export; only the destination file differs.
   const writeHtml = (file: string, template?: string) =>
     exportHtml(g, m, planner.getReport(), planner.getMatrix(), file, template)
+  const writeJson = (file: string) =>
+    exportJson(m, planner.getReport(), planner.getMatrix(), file)
 
-  const exportTo = flag("--export")
-  if (exportTo) {
+  const exportTo = flag("--export"), jsonTo = flag("--json")
+  if (exportTo || jsonTo) {
     try {
-      console.log("exported:", writeHtml(exportTo, flag("--template")))
+      console.log("exported:", exportTo
+        ? writeHtml(exportTo, flag("--template"))
+        : writeJson(jsonTo!))
       return
     } catch (e) { console.error("export error:", e instanceof Error ? e.message : String(e)); process.exit(1) }
   }

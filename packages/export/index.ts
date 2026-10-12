@@ -7,7 +7,7 @@ import { readFileSync, writeFileSync } from "node:fs"
 import { resolve } from "node:path"
 import type { Git } from "../git/index.ts"
 import { visible, type Lane, type Model } from "../model/index.ts"
-import type { Matrix, Report } from "../merge/index.ts"
+import { planLines, type Matrix, type Report } from "../merge/index.ts"
 import { TPL_DAG } from "./lib/template.ts"
 
 export { TPL_DAG }
@@ -81,6 +81,53 @@ export function project(g: Git, m: Model, report: Report, matrix: Matrix | null)
     defaultBranchSource: m.defaultBranchSource,
     report: { ...report, matrix },
   }
+}
+
+/**
+ * Everything the terminal renderer consumes, in a JSON-safe shape, for an autonomous test
+ * harness: the model's render props plus the plan.
+ *
+ * The maps become `[key, value]` entries — `JSON.stringify` alone would turn them into `{}`.
+ * Two fields are machine-specific: `report.generated` is a timestamp and `repo` is an
+ * absolute path. A harness that compares two runs has to normalize both.
+ */
+export type Snapshot = {
+  repo: string
+  headHash: string
+  cs: Model["cs"]
+  N: number
+  lanes: Model["lanes"]
+  idx: [string, number][]
+  byHash: [string, Model["cs"][number]][]
+  tipByBranch: [string, string][]
+  X: number[]
+  Y: number[]
+  MAXY: number
+  labels: Model["labels"]
+  defaultBranches: string[]
+  defaultBranchSource: Model["defaultBranchSource"]
+  report: Report
+  matrix: Matrix | null
+  plan: { t: string; c: string }[]
+}
+
+export function snapshot(m: Model, report: Report, matrix: Matrix | null): Snapshot {
+  return {
+    repo: m.repo, headHash: m.headHash, cs: m.cs, N: m.N, lanes: m.lanes,
+    idx: [...m.idx], byHash: [...m.byHash], tipByBranch: [...m.tipByBranch],
+    X: m.X, Y: m.Y, MAXY: m.MAXY, labels: m.labels,
+    defaultBranches: m.defaultBranches, defaultBranchSource: m.defaultBranchSource,
+    report, matrix, plan: planLines(report),
+  }
+}
+
+/**
+ * Writes the snapshot to `file`, pretty-printed so a harness can diff two runs.
+ */
+export function exportJson(m: Model, report: Report, matrix: Matrix | null, file: string): string {
+  const out = resolve(file)
+  writeFileSync(out, JSON.stringify(snapshot(m, report, matrix), null, 2))
+  return out
 }
 
 /**
