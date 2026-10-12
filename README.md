@@ -11,6 +11,15 @@ export. No build: Bun + [OpenTUI](https://github.com/anomalyco/opentui).
 
 ---
 
+## The graph, in the terminal
+
+One lane per branch: the name at the tip, the colour by category, merged and inactive lanes in
+pastel, the tag band at the top. This is `gitflow`, a synthetic repo.
+
+![gitview rendering the gitflow fixture in the terminal](screenshots/gitflow.png)
+
+---
+
 ## This solves a personal problem
 
 `gitview` was born from a specific, daily need, not from the generic idea of "yet another git
