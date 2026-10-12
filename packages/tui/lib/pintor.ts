@@ -94,16 +94,20 @@ export class Painter {
         continue
       }
       const col = this.f(EDGE, ok)
+      // The arrowhead carries the colour of the lane the edge links to — the merged-in
+      // branch, or the branch a commit forked from — so a merge and a fork read by colour.
+      // The dashed path stays neutral and does not compete with the lanes.
+      const acol = this.f(laneColor(this.m, B[j]), ok)
       if (ay === by) {
         for (let x = ax + 1; x < bx - 1; x++) this.put(x, ay, "┄", col)
-        this.put(bx - 1, ay, "▸", col)
+        this.put(bx - 1, ay, "▶", acol)
         continue
       }
       const d = Math.sign(by - ay)
       for (let x = ax + 1; x < bx; x++) this.put(x, ay, "┄", col)
       this.put(bx, ay, d > 0 ? "╮" : "╯", col)
       for (let y = ay + d; y !== by - d; y += d) this.put(bx, y, "┆", col)
-      this.put(bx, by - d, d > 0 ? "▾" : "▴", col)
+      this.put(bx, by - d, d > 0 ? "▼" : "▲", acol)
     }
   }
 

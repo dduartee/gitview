@@ -149,6 +149,16 @@ function pastel(hex, f){                                   // desaturated color 
 }
 function active(name){ if (!name) return false; var r = conflicts[name]; return r ? (!r.merged && r.ahead > 0) : true }
 function laneColor(cat, name){ var c = COL[cat] || '#9aa3b2'; return active(name) ? c : pastel(c) }
+// Arrowhead for a merge/fork edge: tip at (x, y), pointing along (dx, dy), filled with the
+// colour of the lane the edge links to. The tip is pulled back from the commit centre so the
+// circle drawn later does not cover it.
+function arrowhead(x, y, dx, dy, fill){
+  var back = 8, len = 9, half = 4;
+  var tx = x - dx * back, ty = y - dy * back;             // tip
+  var bx = tx - dx * len, by = ty - dy * len;             // base centre
+  var nx = -dy, ny = dx;                                  // perpendicular (dx, dy) is unit
+  return el('polygon', {points: tx+','+ty+' '+(bx+nx*half)+','+(by+ny*half)+' '+(bx-nx*half)+','+(by-ny*half), fill:fill});
+}
 // Default branches come from the model (G.defaultBranches), resolved by --default-branch /
 // .gitview.json / origin/HEAD / name convention. This list is NOT repeated here on purpose:
 // it was duplication the TypeScript could not check.
@@ -167,8 +177,15 @@ for (i = 0; i < G.commits.length; i++) {
     var e;
     if (py === y) e = el('line', {x1:px, y1:py, x2:x, y2:y, stroke:col, 'stroke-width':same || second ? 2 : 1.4, 'stroke-dasharray':same?'':'3 3'});
     else e = el('polyline', {points:px+','+py+' '+x+','+py+' '+x+','+y, fill:'none', stroke:col, 'stroke-width':second ? 2 : 1.4, 'stroke-dasharray':'3 3'});
-    world.appendChild(e);
-    var rec = {e:e, a:G.laneOf[i], b:G.laneOf[p]};
+    // A cross-lane edge is a merge or a fork: it gets an arrowhead in the colour of the lane
+    // it links to. A same-lane edge is a solid line and carries no arrow.
+    var painted = e;
+    if (!same) {
+      painted = el('g'); painted.appendChild(e);
+      painted.appendChild(arrowhead(x, y, py === y ? (x > px ? 1 : -1) : 0, py === y ? 0 : (y > py ? 1 : -1), laneColor(lp2.cat, lp2.name)));
+    }
+    world.appendChild(painted);
+    var rec = {e:painted, a:G.laneOf[i], b:G.laneOf[p]};
     laneEls[lo].edges.push(rec); laneEls[G.laneOf[p] < 0 ? 0 : G.laneOf[p]].edges.push(rec);
   }
 }
