@@ -18,6 +18,8 @@ export GIT_COMMITTER_NAME=Fixture GIT_COMMITTER_EMAIL=fixture@test
 d() { export GIT_AUTHOR_DATE="2026-$1" GIT_COMMITTER_DATE="2026-$1"; }
 b() { git checkout -q -b "$1"; }
 c() { git add -A; git commit -q --allow-empty -m "$1"; }
+# A merge commit takes the wall clock unless the date is pinned, and its hash moves with it.
+m() { GIT_AUTHOR_DATE="2026-$1" GIT_COMMITTER_DATE="2026-$1" git merge -q --no-ff -m "$2" "$3"; }
 
 start() { # start <dir> <main-branch>
   rm -rf "$1"; mkdir -p "$1"; cd "$1"
@@ -45,10 +47,10 @@ build_complex() {
   b sandbox/tmp; echo cs > cs.txt; c "wip: long name"
   git checkout -q main
   # merges with --no-ff (verifiable landings)
-  git merge -q --no-ff -m "Merge branch 'hotfix/urgent'" hotfix/urgent
+  m 03-01T10:00:00-03:00 "Merge branch 'hotfix/urgent'" hotfix/urgent
   for i in $(seq 1 3); do echo "m$i" >> f.txt; c "feat: main post-merge $i"; done
   git tag -a v1.0.0 -m "v1.0.0" HEAD~2
-  git merge -q --no-ff -m "Merge branch 'release/1.0'" release/1.0
+  m 03-02T10:00:00-03:00 "Merge branch 'release/1.0'" release/1.0
   # long branch
   b feat/long; for i in $(seq 1 40); do echo "l$i" >> l.txt; c "feat: long $i"; done
   # single commit
@@ -80,7 +82,8 @@ build_gitflow() {
 
   git checkout -q -b feature/old "$A2"
   c "old: thing"
-  git merge -q --no-ff --no-edit feature/old -m "main: merge feature/old"
+  git checkout -q main
+  m 04-03T10:00:00-03:00 "main: merge feature/old" feature/old
 
   # a lane whose tip is main's tip: no exclusive commit
   git branch release/1.0 "$A3"
@@ -94,7 +97,7 @@ build_gitflow() {
   git checkout -q -b feature/over-develop "$D"
   d 04-02T10:00:00-03:00; c "over develop"
   git checkout -q main
-  git merge -q --no-ff --no-edit develop -m "main: merge develop"
+  m 04-04T10:00:00-03:00 "main: merge develop" develop
 
   git tag v1.0.0
   # origin/HEAD points to main: the model must find main
@@ -115,13 +118,13 @@ build_synthetic() {
   git checkout -q -b feature/login "$D1"
   d 03-01T10:00:00-03:00; c "login: part 1"; c "login: part 2"
   git checkout -q develop
-  git merge -q --no-ff --no-edit feature/login -m "develop: merge feature/login"
+  m 03-03T10:00:00-03:00 "develop: merge feature/login" feature/login
 
   # merged, then deleted: its commits stay, reachable only through the merge
   git checkout -q -b feature/gone "$D1"
   d 04-01T10:00:00-03:00; c "gone: part 1"; c "gone: part 2"
   git checkout -q develop
-  git merge -q --no-ff --no-edit feature/gone -m "develop: merge feature/gone"
+  m 04-03T10:00:00-03:00 "develop: merge feature/gone" feature/gone
   git branch -q -D feature/gone
 
   # never merged, deleted locally, kept on the remote
@@ -135,18 +138,18 @@ build_synthetic() {
   git checkout -q -b hotfix/urgent "$A3"
   d 06-01T10:00:00-03:00; c "urgent: fix"
   git checkout -q main
-  git merge -q --no-ff --no-edit hotfix/urgent -m "main: merge hotfix/urgent"
+  m 06-02T10:00:00-03:00 "main: merge hotfix/urgent" hotfix/urgent
   git checkout -q develop
-  git merge -q --no-ff --no-edit hotfix/urgent -m "develop: merge hotfix/urgent"
+  m 06-03T10:00:00-03:00 "develop: merge hotfix/urgent" hotfix/urgent
 
   # from main, merged into main and develop, tagged
   git checkout -q -b release/1.0 "$A3"
   d 07-01T10:00:00-03:00; c "release: bump"
   git checkout -q main
-  git merge -q --no-ff --no-edit release/1.0 -m "main: merge release/1.0"
+  m 07-02T10:00:00-03:00 "main: merge release/1.0" release/1.0
   git tag v1.0.0
   git checkout -q develop
-  git merge -q --no-ff --no-edit release/1.0 -m "develop: merge release/1.0"
+  m 07-03T10:00:00-03:00 "develop: merge release/1.0" release/1.0
 
   git checkout -q -b wip/scratch "$A3"
   d 08-01T10:00:00-03:00; c "scratch: 1"; c "scratch: 2"
