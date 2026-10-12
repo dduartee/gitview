@@ -7,15 +7,12 @@
 // lane chegam prontas; a view só sabe colocar célula.
 
 import { Renderable, type MouseEvent, type OptimizedBuffer, type RenderContext } from "@opentui/core"
-import { BG, DX, type Lane, type Model } from "../../model/index.ts"
+import { BG, DX, visivel, type Model } from "../../model/index.ts"
 import type { createMergePlanner } from "../../merge/index.ts"
 import { BOT, C, GUT, Pintor, TOP } from "./pintor.ts"
 
 /** Ancestrais do commit selecionado, ou null quando não está filtrando. */
-export type Ancestrais = Set<string> | null
-
-/** Uma lane ocupa linha? As invisíveis não, mas continuam na coluna de rótulos. */
-const visivel = (b: Lane): boolean => b.list.length > 0 || b.tipAt !== undefined
+type Ancestrais = Set<string> | null
 
 export class GitView extends Renderable {
   cur: number
@@ -151,25 +148,24 @@ export class GitView extends Renderable {
   }
 
   handleKey(name: string, shift: boolean) {
-    const n = name
     if (this.panel) {
-      if (n === "p" || n === "escape") this.panel = false
-      else if (n === "up") this.pscroll = Math.max(0, this.pscroll - 1)
-      else if (n === "down") this.pscroll++
-      else if (n === "pageup") this.pscroll = Math.max(0, this.pscroll - 10)
-      else if (n === "pagedown") this.pscroll += 10
+      if (name === "p" || name === "escape") this.panel = false
+      else if (name === "up") this.pscroll = Math.max(0, this.pscroll - 1)
+      else if (name === "down") this.pscroll++
+      else if (name === "pageup") this.pscroll = Math.max(0, this.pscroll - 10)
+      else if (name === "pagedown") this.pscroll += 10
       this.requestRender(); return
     }
     this.hover = null
-    if (n === "left") this.cur = Math.max(0, this.cur - (shift ? 20 : 1))
-    else if (n === "right") this.cur = Math.min(this.m.N - 1, this.cur + (shift ? 20 : 1))
-    else if (n === "up" || n === "down") { this.laneVizinha(n === "up" ? -1 : 1) }
-    else if (n === "home" || (n === "g" && !shift)) this.cur = 0
-    else if (n === "end" || (n === "g" && shift)) this.cur = this.m.N - 1
-    else if (n === "h") this.cur = this.m.idx.get(this.m.headHash) ?? this.m.N - 1
-    else if (n === "p") { this.openPlan(); return }
-    else if (n === "e") { this.doExport(); return }
-    else if (n === "return" || n === "enter") this.toggle()
+    if (name === "left") this.cur = Math.max(0, this.cur - (shift ? 20 : 1))
+    else if (name === "right") this.cur = Math.min(this.m.N - 1, this.cur + (shift ? 20 : 1))
+    else if (name === "up" || name === "down") { this.laneVizinha(name === "up" ? -1 : 1) }
+    else if (name === "home" || (name === "g" && !shift)) this.cur = 0
+    else if (name === "end" || (name === "g" && shift)) this.cur = this.m.N - 1
+    else if (name === "h") this.cur = this.m.idx.get(this.m.headHash) ?? this.m.N - 1
+    else if (name === "p") { this.openPlan(); return }
+    else if (name === "e") { this.doExport(); return }
+    else if (name === "return" || name === "enter") this.toggle()
     this.reveal(); this.requestRender()
   }
 

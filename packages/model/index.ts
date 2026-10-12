@@ -11,9 +11,8 @@
 import type { Git } from "../git/index.ts"
 import { BG, COL, mix } from "./lib/color.ts"
 import { PRIO, catOf } from "./lib/category.ts"
-import { DX, RH } from "./lib/dimensoes.ts"
 import { atribuirLanes } from "./lib/lanes.ts"
-import { empacotarY, medirLanes } from "./lib/layout.ts"
+import { DX, RH, empacotarY, medirLanes } from "./lib/layout.ts"
 import { describeTrunks, isTrunk, resolveTrunks, type TrunkSource } from "./lib/trunks.ts"
 
 // `mix` e os troncos saem pela interface porque o TUI e o export precisam deles, e

@@ -14,7 +14,7 @@ const EDGE = "#9aa3b2"
 export const GUT = 12, TOP = 1, BOT = 2
 
 /** RGBA é caro de construir; a paleta do grafo tem poucos valores. */
-export const cacheCor = new Map<string, RGBA>()
+const cacheCor = new Map<string, RGBA>()
 export const C = (h: string): RGBA => {
   let c = cacheCor.get(h)
   if (!c) { c = RGBA.fromHex(h); cacheCor.set(h, c) }

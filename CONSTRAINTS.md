@@ -23,27 +23,33 @@ transpilation_allowed: false
 build_step: none               # bun executa TypeScript direto
 ```
 
-**O teto de 2400 subiu de 2000 com justificativa medida, não com gosto.** Partimos de
-2021 e o trabalho de legibilidade levou a 2198 (+177). A decomposição do código:
+**O teto é 2400, e hoje o código está em 1987.** O número veio de medição, não de gosto:
+partimos de 2021, a decomposição em packages levou a um pico de 2198, e daí o teto de 2400.
+Depois de extrair `GitView` e `Pintor` de `renderSelf`, quebrar `buildModel` e
+`createMergePlanner`, e eliminar exports mortos e uma função duplicada, o total **caiu abaixo
+do ponto de partida**.
 
-| | antes | depois |
+| | pico | hoje |
 | --- | --- | --- |
-| `tui/index.ts` código | 225 | 203 (**−22**) |
-| `pintor.ts` código | — | 111 |
-| `merge/index.ts` código | 122 | 142 (+20) |
+| `tui/index.ts` | 225 | 34 |
+| `tui/lib/view.ts` | — | 248 |
+| `tui/lib/pintor.ts` | — | 157 |
+| `merge/index.ts` | 122 | 202 |
+| **total (binário)** | 2198 | **1987** |
 
-O TUI encolheu. `pintor.ts` não é código novo: é o mesmo desenho que estava dentro de
-`renderSelf`, agora com endereço. Por isso LOC de arquivo mede **volume**, não
-complexidade — e é por isso que existe o segundo teto, `max_lines_per_function`, que é o
-que de fato pegaria uma função ilegível.
+`view.ts` e `pintor.ts` não são código novo: é o desenho que estava dentro de `renderSelf`,
+agora com endereço. Por isso LOC de arquivo mede **volume**, não complexidade — e é por isso
+que o teto que de fato pegaria uma função ilegível é o outro, `max_lines_per_function`.
 
-**Testes ficam fora da conta.** `script/sinks.ts` mede só o que vai para o binário;
-testes aparecem à parte, como informação. Contá-los no teto puniria quem escreve
-verificação, que é o inverso do que este arquivo existe para incentivar.
+**Folga de 17%.** Com o código em 1987, os 2400 sobraram. Baixar para ~2100 daria folga real
+de ~5%, que é o que um teto existe para fazer: obrigar a justificar cada linha nova.
 
-`+20` em `merge` é o preço de seis nomes (`suportaMergeTree`, `conflitosEntre`, `alvos`,
-`destinoDe`, `avaliarBranch`, `planoPara`) no lugar de uma função de 63 linhas. É
-investimento em legibilidade com custo conhecido, não crescimento acidental.
+**Testes ficam fora da conta.** `script/sinks.ts` mede só o que vai para o binário; testes
+aparecem à parte. Contá-los no teto puniria quem escreve verificação, que é o inverso do que
+este arquivo existe para incentivar.
+
+`+80` em `merge` é o preço de nomes que substituíram funções de 60+ linhas com oito variáveis
+de estado. Custo conhecido em troca de legibilidade, não crescimento acidental.
 
 **O que este teto não mede:** `packages/export/lib/template.ts` são 497 linhas de CSS e JS
 dentro de uma string literal, fora do alcance do `tsc`. É o arquivo mais arriscado do

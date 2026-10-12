@@ -13,7 +13,7 @@
 // package importá-lo, e isso é correto — ele não é código de produção.
 
 /** Elemento de brinquedo com o que o template usa. */
-export class El {
+class El {
   tagName: string
   attrs: Record<string, string> = {}
   children: El[] = []
@@ -116,7 +116,7 @@ export function exercitar(dom: Dom): { acionados: number; erros: { onde: string;
 }
 
 /** Ids declarados no HTML do template. O script só pode esperar que estes existam. */
-export function idsDoHtml(tpl: string): Set<string> {
+function idsDoHtml(tpl: string): Set<string> {
   const ids = new Set<string>()
   for (const m of tpl.matchAll(/\bid="([^"]+)"/g)) ids.add(m[1])
   return ids

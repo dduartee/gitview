@@ -25,7 +25,7 @@ const criar = (lista: Lane[]) => (name: string, cat: string): Lane => {
   return b
 }
 
-export type Lanes = { owner: Map<string, Lane>; br: Lane[] }
+type Lanes = { owner: Map<string, Lane>; br: Lane[] }
 
 /**
  * @param loc       nome de branch -> hash da ponta

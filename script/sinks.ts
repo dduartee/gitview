@@ -1,5 +1,5 @@
 #!/usr/bin/env bun
-// slick: valida o repo contra o CONSTRAINTS.md.
+// Valida o repo contra os tetos declarados no CONSTRAINTS.md.
 //
 // Lê os tetos do próprio CONSTRAINTS.md — não os duplica aqui. Um teto escrito em dois
 // lugares diverge; quando diverge, ninguém sabe qual vale.
@@ -31,7 +31,7 @@ function tetos(): { loc: number; deps: number; fn: number } {
 /**
  * Maior função por número de linhas, e onde.
  *
- * Heurística por profundeidade de indentação: conta linhas até a próxima linha no mesmo
+ * Heurística por profundidade de indentação: conta linhas até a próxima linha no mesmo
  * ou menor nível que abre a função. Custa pouco e erra para o lado de reportar demais —
  * um falso positivo é uma olhada, um falso negativo é uma função ilegível passando.
  *
@@ -68,7 +68,7 @@ function fontes(dir: string, acc: string[] = []): string[] {
 }
 
 /** Teste não vai para o binário. Contá-lo no teto puniria quem escreve verificação. */
-const ehTeste = (f: string) => f.includes("/tests/") || f.endsWith(".test.ts")
+const ehTeste = (f: string) => f.includes("/tests/")
 
 const { loc: MAX_LOC, deps: MAX_DEPS, fn: MAX_FN } = tetos()
 const pkg = JSON.parse(readFileSync(join(RAIZ, "package.json"), "utf8"))

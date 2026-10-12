@@ -10,7 +10,12 @@
 //    mesma linha — é o que mantém o grafo curto em repo com muitas branches.
 
 import type { Lane } from "../index.ts"
-import { DX, RH } from "./dimensoes.ts"
+
+/** Espaçamento horizontal entre commits, em colunas de terminal. */
+export const DX = 4
+
+/** Altura de uma lane, em linhas. */
+export const RH = 3
 
 /** Preenche x0/x1 (extensão dos commits) e L/R (extensão incluindo o nome). */
 export function medirLanes(lanes: Lane[], idx: Map<string, number>): void {

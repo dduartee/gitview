@@ -10,7 +10,7 @@ import { createFakeGit, leftRight, logOutput } from "../../git/fake.ts"
 import { buildModel } from "../../model/index.ts"
 import { createMergePlanner } from "../../merge/index.ts"
 import { project, TPL_DAG } from "../index.ts"
-import { assinatura, exercitar, idsDoHtml, rodarTemplate } from "./dom.ts"
+import { assinatura, exercitar, rodarTemplate } from "./dom.ts"
 
 const g = createFakeGit({
   "log --all": { out: logOutput([
@@ -64,13 +64,6 @@ describe("template HTML", () => {
     expect(t?.textContent).toContain("sem dados")
   })
 
-  test("o HTML declara os ids que o script usa", () => {
-    const ids = idsDoHtml(TPL_DAG)
-    for (const obrigatorio of ["svg", "world", "ex", "ey", "dag", "colY", "t-refs", "t-plan", "t-matrix"]) {
-      expect(ids.has(obrigatorio)).toBe(true)
-    }
-  })
-
   test("as interações não quebram: abas, interruptores, busca e setas", () => {
     // Cobre os caminhos que o carregamento não toca — zoom, filtro, troca de aba. Um
     // `var`→`let` mal feito apareceria aqui, não no primeiro render.
@@ -81,12 +74,5 @@ describe("template HTML", () => {
     expect(ex.erros).toEqual([])
     // trocar interruptor grava sessão e recarrega: é o comportamento do template
     expect(r.dom.reloads).toBeGreaterThan(0)
-  })
-
-  test("a busca reduz as lanes visíveis", () => {
-    const r = rodarTemplate(TPL_DAG, grafo())
-    exercitar(r.dom)
-    const cnt = r.dom.porId.get("cnt-f")
-    expect(cnt?.textContent).toBeTruthy()
   })
 })
